@@ -1,13 +1,20 @@
 import scipy.sparse
+from sys import argv
+import matplotlib.pylab as plt
+from math import log
 import numpy as np
 
 #Global Variables
 DATA_FILE_PATH = "/mnt/hgfs/datasets/wordEmbeddings/"
 FILE_NAME = DATA_FILE_PATH + "wordPairPMI_2016.csv"
+SINGULAR_VALUE_FILE_PATH = ""
 UPDATE_FREQUENCY_CONSTANT = 13
 
+#run by global filelocation or argument if passed in
 def main():
-  read_in_pmi(FILE_NAME,True)
+  A = np.random.rand(3,1)
+  mv = mat_vec(A,3)
+  print mv(np.ones(3))
 
 
 '''-----------------------------------------------------------------------------
@@ -25,7 +32,7 @@ def main():
       pmi - (dok_matrix)
         a sparse matrix with the corresponding pmi values for each of the 
         word context pairs. 
- -----------------------------------------------------------------------------'''
+-----------------------------------------------------------------------------'''
 def read_in_pmi(filename, display_progress = False):
   f = open(filename,"r")
   f.next() # skip word, context, pmi line
@@ -33,6 +40,7 @@ def read_in_pmi(filename, display_progress = False):
   edge_count = 0
   i_max = -1
   j_max = -1
+
   #count the edges in the file, and dimensions of PPMI matrix
   for line in f:
     edge_count += 1
@@ -91,8 +99,45 @@ def read_in_pmi(filename, display_progress = False):
         a dictionary of the stats to be reported back in the where the keys 
         are the listed matrix stats reported above. 
 -----------------------------------------------------------------------------'''
-def matrix_stats(matrix):
+'''def matrix_stats(matrix):
+  stats = {}
+  matrix.shape
+  stats[ROWS] =
+'''
+'''-----------------------------------------------------------------------------
+    matrix_visualization(matrix)
+      This function takes in a matrix and uses plt functions to visualize the 
+      non-zeros of the matrix. 
+    Input:
+      matrix - (n x m sparse matrix)
+        the matrix to visualize.
+-----------------------------------------------------------------------------'''
+def matrix_visualization(matrix):
+  plt.spy(matrix)
+  plt.show()
 
+'''-----------------------------------------------------------------------------
+    mat_vec(matrix, vector)
+       This function produces an anonymous function to be used as a linear 
+       operator in the scipy svd routine.
+    Input:
+      matrix - (n x m sparse matrix)
+        The pmi matrix to use to compute the word embeddings. 
+      k - (int)
+        The negative sample multiple factor.
+    Returns:
+      mat_vec - (m-vec -> n-vec)
+        an anonymous function which works as an O(m) linear operator which 
+        adds a rank 1 update to the pmi matrix.   (M - log(k))
+    Notes:
+      Unclear if the numpy sum function has numerical instability issues. 
+-----------------------------------------------------------------------------'''
+def mat_vec(matrix, k):
+  logFactor = log(k)
+  n = matrix.shape[0]
+  m = matrix.shape[1]
+  mat_vec = lambda v: (matrix * v) + (np.ones(n) * v.sum() * logFactor)
+  return mat_vec
 
 if __name__ == "__main__":
  main()
