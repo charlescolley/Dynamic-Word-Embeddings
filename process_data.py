@@ -1,4 +1,5 @@
-import scipy.sparse
+import scipy.sparse as sp
+from scipy.sparse.linalg import svds, LinearOperator
 from sys import argv
 import matplotlib.pylab as plt
 from math import log
@@ -7,14 +8,18 @@ import numpy as np
 #Global Variables
 DATA_FILE_PATH = "/mnt/hgfs/datasets/wordEmbeddings/"
 FILE_NAME = DATA_FILE_PATH + "wordPairPMI_2016.csv"
-SINGULAR_VALUE_FILE_PATH = ""
-UPDATE_FREQUENCY_CONSTANT = 13
+INDEX_WORD_FILE = DATA_FILE_PATH + "wordIDHash_min200.csv"
+SING_VAL_EXTENSION = "_SingVals.npy"
+
+UPDATE_FREQUENCY_CONSTANT = 10
 
 #run by global filelocation or argument if passed in
 def main():
-  A = np.random.rand(3,1)
-  mv = mat_vec(A,3)
-  print mv(np.ones(3))
+  word_ids = read_in_word_index(False)
+  print word_ids
+  pmi = read_in_pmi(FILE_NAME) if (len(argv) < 2) else read_in_pmi(argv[1])
+ # stats = matrix_stats(pmi[:100,:100])
+ # np.save(argv[1].split(".")[0] + SING_VAL_EXTENSION, stats)
 
 
 '''-----------------------------------------------------------------------------
@@ -52,6 +57,7 @@ def read_in_pmi(filename, display_progress = False):
     if (j > j_max):
       j_max = j
 
+
   if display_progress:
     print "counted {} edges over {} by {} words"\
       .format(edge_count, i_max, j_max)
@@ -65,32 +71,63 @@ def read_in_pmi(filename, display_progress = False):
     update_frequency = edge_count/UPDATE_FREQUENCY_CONSTANT
     edge_count = 0
 
-  shape = (max(i_max, j_max), max(i_max, j_max))
+  shape = (i_max+1,j_max+1)
   #initialize sparse matrix
-  pmi = scipy.sparse.dok_matrix(shape)
+  pmi = sp.dok_matrix(shape)
 
   #reiterate through to store non-zeros
   for line in f:
     edge = line.split(',')
-    i = int(edge[0]) - 1  #arrays are indexed by 0
-    j = int(edge[1]) - 1
+    i = int(edge[0])  #arrays are indexed by 0
+    j = int(edge[1])
+
+    if edge_count > 100000:
+      break
     pmi[i, j] = float(edge[2])
     if display_progress:
       edge_count += 1
+      print i, j, edge_count
       if edge_count % update_frequency == 0:
         print "{}% complete, {} edges read in"\
-          .format((edge_count/update_frequency) * UPDATE_FREQUENCY_CONSTANT,
+          .format((edge_count/update_frequency) * (1/UPDATE_FREQUENCY_CONSTANT),
                   edge_count)
 
   return pmi
 
+'''-----------------------------------------------------------------------------
+    read_in_word_index()
+      This function reads in the word index associated with the text corpus, 
+      from the wordIDHash_min200.csv file so the embeddings can be associated 
+      with the proper word rather than an integer ID. 
+    Inputs:
+      include_word_count - (boolean)
+        a boolean indicating whether or not the word count should be included in
+        as the second element in a tuple in the key value pair. 
+    Returns:
+      word_IDs - (dictionary)
+        a dictionary which has indices as the keys and the words as the 
+        associated values. If include_word_count is true, then the values are 
+        2-tuples where the first element is the word, and the 2nd element is 
+        the word frequency. 
+-----------------------------------------------------------------------------'''
+def read_in_word_index(include_word_count):
+  f = open(INDEX_WORD_FILE, "r") # formatted as wordId, word, word count
+  word_IDs = {}
+  for line in f:
+    word_stat = line.split(',')
+    if include_word_count:
+      word_IDs[int(word_stat[0])] = (word_stat[1], int(word_stat[2]))
+    else:
+      word_IDs[int(word_stat[0])] = word_stat[1]
+
+  return word_IDs
 
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
       This function takes in a sparse matrix and returns a collection of 
       statistics about the matrix in question. data reported about the matrix 
       includes
-        ROWS, COLUMNS, NON-ZEROS,and SINGULAR VALUES
+        ROWS, COLUMNS, NON-ZEROS,and SINGULAR_VALUES
     Input:
       matrix - (n x m sparse matrix)
         the matrix in question to report matrix stats about
@@ -99,11 +136,15 @@ def read_in_pmi(filename, display_progress = False):
         a dictionary of the stats to be reported back in the where the keys 
         are the listed matrix stats reported above. 
 -----------------------------------------------------------------------------'''
-'''def matrix_stats(matrix):
+def matrix_stats(matrix):
   stats = {}
-  matrix.shape
-  stats[ROWS] =
-'''
+  stats["ROWS"] = matrix.shape[0]
+  stats["COLS"] = matrix.shape[1]
+  stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=(min(matrix.shape) -1),
+                                  return_singular_vectors=False)
+  return stats
+
+
 '''-----------------------------------------------------------------------------
     matrix_visualization(matrix)
       This function takes in a matrix and uses plt functions to visualize the 
@@ -137,7 +178,10 @@ def mat_vec(matrix, k):
   n = matrix.shape[0]
   m = matrix.shape[1]
   mat_vec = lambda v: (matrix * v) + (np.ones(n) * v.sum() * logFactor)
-  return mat_vec
+  rmat_vec = lambda v: (matrix.T * v) + (np.ones(m) * v.sum() * logFactor)
+  return LinearOperator((n,m), mat_vec, rmatvec = rmat_vec)
+
+
 
 if __name__ == "__main__":
  main()
