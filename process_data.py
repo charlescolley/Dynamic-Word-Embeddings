@@ -4,8 +4,9 @@ from sys import argv
 import matplotlib.pylab as plt
 from math import log
 import numpy as np
-import resource
-from memory_profiler import profile
+import cProfile
+import csv
+#from memory_profiler import profile
 
 #Global Variables
 DATA_FILE_PATH = "/mnt/hgfs/datasets/wordEmbeddings/"
@@ -18,16 +19,22 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 #argv[1].split(".")[0] +
 
 #run by global filelocation or argument if passed in
-@profile
 def main():
-  #pmi = read_in_pmi(FILE_NAME,True) if (len(argv) < 2) else read_in_pmi(
-  # argv[1])
-  n = 10000
-  m = 100
-  matrix = sp.random(n,m,1e-2,format='dok',random_state=1)
-  print "made matrix"
-  stats = matrix_stats(matrix)
+  profile_read_in_function()
+  #pmi = read_in_pmi(FILE_NAME,True) \
+ #   if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
+def test_func():
+  f = open(FILE_NAME,"r")
+  f.next()
+
+  edges = {}
+  edge_count = 0
+  for line in f:
+     edges[edge_count] = line.split(',')
+     edge_count += 1
+
+  f.close()
 
 '''-----------------------------------------------------------------------------
     read_in_pmi(filename, display_progress)
@@ -45,28 +52,91 @@ def main():
         a sparse matrix with the corresponding pmi values for each of the 
         word context pairs. 
 -----------------------------------------------------------------------------'''
-def read_in_pmi(filename, display_progress = False):
+def read_in_pmi(filename, return_scaled_count = False,
+                display_progress = False):
   f = open(filename,"r")
   f.next() # skip word, context, pmi line
   total_edge_count = 0
+  clean_indices = 0
+  edges = {}
   i_max = -1
   j_max = -1
 
-  #count the edges in the file, and dimensions of PPMI matrix
+
+  word_indices = read_in_word_index(return_scaled_count)
+
+  if display_progress:
+    print 'Read in word indices'
+  new_indices = {}
+
+  #count the edges in the file, dimensions of PPMI matrix, and reassign indices.
   for line in f:
-    total_edge_count += 1
     edge = line.split(',')
-    i = int(edge[0])
-    j = int(edge[1])
-    if (i > i_max):
-      i_max = i
-    if (j > j_max):
-      j_max = j
+
+    #reassign new indices to prevent empty submatrices in pmi
+    word_ID = int(edge[0])
+    context_ID = int(edge[1])
+
+    word = word_indices[word_ID] if not return_scaled_count else\
+           word_indices[word_ID][0]
+    if word not in new_indices:
+      new_indices[word] = clean_indices
+      clean_indices += 1
+
+    context = word_indices[context_ID] if not return_scaled_count else\
+              word_indices[context_ID][0]
+    if context not in new_indices:
+      new_indices[context] = clean_indices
+      clean_indices += 1
+
+      edge_val = np.float(edge[2])
+      if return_scaled_count:
+        edge_val =  np.exp(edge_val)* \
+                    word_indices[word_ID][1] * word_indices[context_ID][1]
+
+      edges[total_edge_count] = [new_indices[word],
+                                 new_indices[context],
+                                 edge_val]
+    #check if new indices are largest row or column found
+    if new_indices[word] > i_max:
+      i_max = new_indices[word]
+
+    if new_indices[context] > j_max:
+      j_max = new_indices[context]
+
+    total_edge_count += 1
+
+  f.close()
 
   if display_progress:
     print "counted {} edges over {} by {} words"\
       .format(total_edge_count, i_max, j_max)
 
+
+  # initialize counts for updating user as file loads
+  if display_progress:
+    update_frequency = total_edge_count / UPDATE_FREQUENCY_CONSTANT
+    edge_count = 0
+
+  shape = (i_max+1,j_max+1)
+  #initialize sparse matrix
+  pmi = sp.dok_matrix(shape)
+
+  for i in xrange(total_edge_count):
+    print edges[i][0], edges[i][1], edges[i][2]
+    pmi[edges[i][0], edges[i][1]] = edges[i][2]
+    if display_progress:
+      edge_count += 1
+      if edge_count > 100:
+        break
+      if edge_count % update_frequency == 0:
+        print "{}% complete, {} edges read in"\
+          .format((edge_count/total_edge_count)*100,
+                  edge_count)
+
+  return pmi
+
+'''
   f.close()
   f = open(filename, "r")
   f.next()
@@ -83,18 +153,23 @@ def read_in_pmi(filename, display_progress = False):
   #reiterate through to store non-zeros
   for line in f:
     edge = line.split(',')
-    i = int(edge[0])  #arrays are indexed by 0
-    j = int(edge[1])
+    i = new_indices[word_indices[int(edge[0])]]  #arrays are indexed by 0
+    j = new_indices[word_indices[int(edge[1])]]
 
     pmi[i, j] = np.float(edge[2])
     if display_progress:
       edge_count += 1
+      if edge_count > 100:
+        break
       if edge_count % update_frequency == 0:
         print "{}% complete, {} edges read in"\
           .format((edge_count/total_edge_count)*100,
                   edge_count)
+'''
+def profile_read_in_function():
+  #cProfile.run('test_func()')
+  cProfile.run('read_in_pmi(FILE_NAME,True)')
 
-  return pmi
 '''-----------------------------------------------------------------------------
     read_in_word_index()
       This function reads in the word index associated with the text corpus, 
@@ -111,7 +186,7 @@ def read_in_pmi(filename, display_progress = False):
         2-tuples where the first element is the word, and the 2nd element is 
         the word frequency. 
 -----------------------------------------------------------------------------'''
-def read_in_word_index(include_word_count):
+def read_in_word_index(include_word_count = False):
   f = open(INDEX_WORD_FILE, "r") # formatted as wordId, word, word count
   word_IDs = {}
   for line in f:
@@ -123,7 +198,19 @@ def read_in_word_index(include_word_count):
 
   return word_IDs
 
-def convert_to_context()
+'''-----------------------------------------------------------------------------
+    convert_pmi_to_window_count()
+      This function takes in a pmi matrix and returns a matrix where the (w,c)th
+      element of |D| element corpus is equal to  
+        (# of times word w appears in context c)*|D|
+      This is used to create a weighted objective function such that the (w,c)th 
+      softmax term is weighted by the number of times that context appears in 
+      the corpus(including the scaling factor |D|).
+    Input:
+      pmi (n x m) sparse matrix
+        the pmi matrix to convert
+-----------------------------------------------------------------------------'''
+
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
       This function takes in a sparse matrix and returns a collection of 
@@ -138,7 +225,6 @@ def convert_to_context()
         a dictionary of the stats to be reported back in the where the keys 
         are the listed matrix stats reported above. 
 -----------------------------------------------------------------------------'''
-@profile
 def matrix_stats(matrix):
   stats = {}
   stats["ROWS"] = matrix.shape[0]
