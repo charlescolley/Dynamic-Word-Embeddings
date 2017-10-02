@@ -4,22 +4,29 @@ from sys import argv
 import matplotlib.pylab as plt
 from math import log
 import numpy as np
+import resource
+from memory_profiler import profile
 
 #Global Variables
 DATA_FILE_PATH = "/mnt/hgfs/datasets/wordEmbeddings/"
 FILE_NAME = DATA_FILE_PATH + "wordPairPMI_2016.csv"
 INDEX_WORD_FILE = DATA_FILE_PATH + "wordIDHash_min200.csv"
-SING_VAL_EXTENSION = "_SingVals.npy"
+SING_VAL_EXTENSION = "SingVals.npy"
 
-UPDATE_FREQUENCY_CONSTANT = 10
+UPDATE_FREQUENCY_CONSTANT = 10.0
+
+#argv[1].split(".")[0] +
 
 #run by global filelocation or argument if passed in
+@profile
 def main():
-  word_ids = read_in_word_index(False)
-  print word_ids
-  pmi = read_in_pmi(FILE_NAME) if (len(argv) < 2) else read_in_pmi(argv[1])
- # stats = matrix_stats(pmi[:100,:100])
- # np.save(argv[1].split(".")[0] + SING_VAL_EXTENSION, stats)
+  #pmi = read_in_pmi(FILE_NAME,True) if (len(argv) < 2) else read_in_pmi(
+  # argv[1])
+  n = 10000
+  m = 100
+  matrix = sp.random(n,m,1e-2,format='dok',random_state=1)
+  print "made matrix"
+  stats = matrix_stats(matrix)
 
 
 '''-----------------------------------------------------------------------------
@@ -41,14 +48,13 @@ def main():
 def read_in_pmi(filename, display_progress = False):
   f = open(filename,"r")
   f.next() # skip word, context, pmi line
-
-  edge_count = 0
+  total_edge_count = 0
   i_max = -1
   j_max = -1
 
   #count the edges in the file, and dimensions of PPMI matrix
   for line in f:
-    edge_count += 1
+    total_edge_count += 1
     edge = line.split(',')
     i = int(edge[0])
     j = int(edge[1])
@@ -57,10 +63,9 @@ def read_in_pmi(filename, display_progress = False):
     if (j > j_max):
       j_max = j
 
-
   if display_progress:
     print "counted {} edges over {} by {} words"\
-      .format(edge_count, i_max, j_max)
+      .format(total_edge_count, i_max, j_max)
 
   f.close()
   f = open(filename, "r")
@@ -68,7 +73,7 @@ def read_in_pmi(filename, display_progress = False):
 
   #initialize counts for updating user as file loads
   if display_progress:
-    update_frequency = edge_count/UPDATE_FREQUENCY_CONSTANT
+    update_frequency = total_edge_count/UPDATE_FREQUENCY_CONSTANT
     edge_count = 0
 
   shape = (i_max+1,j_max+1)
@@ -81,19 +86,15 @@ def read_in_pmi(filename, display_progress = False):
     i = int(edge[0])  #arrays are indexed by 0
     j = int(edge[1])
 
-    if edge_count > 100000:
-      break
-    pmi[i, j] = float(edge[2])
+    pmi[i, j] = np.float(edge[2])
     if display_progress:
       edge_count += 1
-      print i, j, edge_count
       if edge_count % update_frequency == 0:
         print "{}% complete, {} edges read in"\
-          .format((edge_count/update_frequency) * (1/UPDATE_FREQUENCY_CONSTANT),
+          .format((edge_count/total_edge_count)*100,
                   edge_count)
 
   return pmi
-
 '''-----------------------------------------------------------------------------
     read_in_word_index()
       This function reads in the word index associated with the text corpus, 
@@ -122,6 +123,7 @@ def read_in_word_index(include_word_count):
 
   return word_IDs
 
+def convert_to_context()
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
       This function takes in a sparse matrix and returns a collection of 
@@ -136,14 +138,14 @@ def read_in_word_index(include_word_count):
         a dictionary of the stats to be reported back in the where the keys 
         are the listed matrix stats reported above. 
 -----------------------------------------------------------------------------'''
+@profile
 def matrix_stats(matrix):
   stats = {}
   stats["ROWS"] = matrix.shape[0]
   stats["COLS"] = matrix.shape[1]
-  stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=(min(matrix.shape) -1),
+  stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=10,
                                   return_singular_vectors=False)
   return stats
-
 
 '''-----------------------------------------------------------------------------
     matrix_visualization(matrix)
