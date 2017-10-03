@@ -5,6 +5,7 @@ import matplotlib.pylab as plt
 from math import log
 import numpy as np
 import cProfile
+from functools import reduce
 import csv
 #from memory_profiler import profile
 
@@ -20,8 +21,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  profile_read_in_function()
-  #pmi = read_in_pmi(FILE_NAME,True) \
+  #profile_read_in_function()
+  pmi = read_in_pmi(FILE_NAME,True) \
  #   if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
 def test_func():
@@ -45,12 +46,19 @@ def test_func():
     Input:
       filename - (string) 
         location of the file.
+      return_scaled_count - (optional bool)
+        instead returning the pmi for a word context pair, we can return the 
+        number of times that the pairs appears together in a text corpus, 
+        this provides naive weights for the loss function.  
       display_progress - (optional bool) 
         display statements updating the progress of the file load or not.
     Returns:
       pmi - (dok_matrix)
         a sparse matrix with the corresponding pmi values for each of the 
         word context pairs. 
+    NOTE: read_in_word_index current returns the word count over all text 
+    documents, not the word count for an individual text corpus, rendering 
+    the return_scaled_count option invalid
 -----------------------------------------------------------------------------'''
 def read_in_pmi(filename, return_scaled_count = False,
                 display_progress = False):
@@ -62,9 +70,15 @@ def read_in_pmi(filename, return_scaled_count = False,
   i_max = -1
   j_max = -1
 
-
   word_indices = read_in_word_index(return_scaled_count)
 
+
+  '''
+  the count is over all words over all times
+  #compute word count TODO: VALIDATE SUM
+  if return_scaled_count:
+    word_count = reduce(lambda x,key: x + word_indices[key][1],word_indices)
+  '''
   if display_progress:
     print 'Read in word indices'
   new_indices = {}
@@ -79,24 +93,25 @@ def read_in_pmi(filename, return_scaled_count = False,
 
     word = word_indices[word_ID] if not return_scaled_count else\
            word_indices[word_ID][0]
+    context = word_indices[context_ID] if not return_scaled_count else\
+              word_indices[context_ID][0]
+
+
     if word not in new_indices:
       new_indices[word] = clean_indices
       clean_indices += 1
 
-    context = word_indices[context_ID] if not return_scaled_count else\
-              word_indices[context_ID][0]
     if context not in new_indices:
       new_indices[context] = clean_indices
       clean_indices += 1
 
-      edge_val = np.float(edge[2])
-      if return_scaled_count:
-        edge_val =  np.exp(edge_val)* \
-                    word_indices[word_ID][1] * word_indices[context_ID][1]
+    edge_val = np.float(edge[2])
+    if return_scaled_count:
+      edge_val =  np.exp(edge_val)* \
+                  word_indices[word_ID][1] * word_indices[context_ID][1]
 
-      edges[total_edge_count] = [new_indices[word],
-                                 new_indices[context],
-                                 edge_val]
+    edges[total_edge_count] = [new_indices[word], new_indices[context],
+                               edge_val]
     #check if new indices are largest row or column found
     if new_indices[word] > i_max:
       i_max = new_indices[word]
@@ -123,6 +138,7 @@ def read_in_pmi(filename, return_scaled_count = False,
   pmi = sp.dok_matrix(shape)
 
   for i in xrange(total_edge_count):
+    print i
     print edges[i][0], edges[i][1], edges[i][2]
     pmi[edges[i][0], edges[i][1]] = edges[i][2]
     if display_progress:
@@ -131,7 +147,7 @@ def read_in_pmi(filename, return_scaled_count = False,
         break
       if edge_count % update_frequency == 0:
         print "{}% complete, {} edges read in"\
-          .format((edge_count/total_edge_count)*100,
+          .format((edge_count/float(total_edge_count))*100,
                   edge_count)
 
   return pmi

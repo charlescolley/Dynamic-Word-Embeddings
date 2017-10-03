@@ -7,13 +7,41 @@ import numpy as np
 def main():
   downhillExample()
 
-def TensorFlowTutorial():
+'''
+    build_objective_functions(word_count_matrix, k)
+      This function takes in a n x m matrix with the scaled number of times a 
+      word appears within the context c (#(w,c)) and returns a lambda 
+      function which computes the loss function and a gradient function. The 
+      function will 
+    Inputs:
+      word_count_matrix - (sparse n x m matrix)
+        a scipy sparse matrix which the (i,j)th entry corresponds to #(w_i,
+        c_j)|D|. Here |D| denotes the number of words in the text corpus. 
+      word_count - (dictionary)
+        a dictionary which has the word counts for a text corpus. 
+      k - int
+        the negative sampling rate, creates k fake samples which help prevent 
+        unform distriutions from arising. Samples are created from a unigram 
+        distriution. P((w,c)) = #(w)*#(c)^{3/4}/Z where Z is a normalizing 
+        constant. 
+    Returns:
+      loss_func - (lambda func)
+        an anonymous function which has the negated word2vec objective 
+        function (which is typically maximized). 
+        \sum_{(w,c) \in D} (log(softmax(v_c,v_w)) - k 
+      gradient - (lambda func)
+        an anonymous function which has the gradient of the 
+'''
+def build_loss_function(word_count_matrix, word_count, k):
+
+
+def tensorflow_tutorial():
   vocab_size = 10000
   embedding_size = 100
   embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size],-1,1))
 
 
-def theanoCode():
+def theano_code():
   x = t.shared(np.ones(2),'x')
   y = t.shared(np.ones(2), 'y')
 
@@ -28,7 +56,7 @@ def theanoCode():
   print downhill.minimize(qf, matrix,inputs=A)
 
 
-def downhillExample():
+def downhill_example():
 
 #  THEANO_FLAGS = None
   m = t.shared(np.ones((1, ), dtype=np.float64), name='m')
