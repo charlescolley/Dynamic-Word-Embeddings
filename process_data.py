@@ -21,9 +21,9 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  #profile_read_in_function()
-  pmi = read_in_pmi(FILE_NAME,True) \
- #   if (len(argv) < 2) else read_in_pmi(argv[1],True)
+
+  #pmi = read_in_pmi() \
+  #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
 def test_func():
   f = open(FILE_NAME,"r")
@@ -56,11 +56,14 @@ def test_func():
       pmi - (dok_matrix)
         a sparse matrix with the corresponding pmi values for each of the 
         word context pairs. 
+      clean_indices - (dictionary)
+        a dictionary where the keys are words and the values are the new 
+        indices.
     NOTE: read_in_word_index current returns the word count over all text 
     documents, not the word count for an individual text corpus, rendering 
     the return_scaled_count option invalid
 -----------------------------------------------------------------------------'''
-def read_in_pmi(filename, return_scaled_count = False,
+def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
                 display_progress = False):
   f = open(filename,"r")
   f.next() # skip word, context, pmi line
@@ -71,7 +74,6 @@ def read_in_pmi(filename, return_scaled_count = False,
   j_max = -1
 
   word_indices = read_in_word_index(return_scaled_count)
-
 
   '''
   the count is over all words over all times
@@ -150,7 +152,33 @@ def read_in_pmi(filename, return_scaled_count = False,
           .format((edge_count/float(total_edge_count))*100,
                   edge_count)
 
-  return pmi
+  return pmi, clean_indices
+'''-----------------------------------------------------------------------------
+    filter_up_to_kth_largest(matrix, k)
+      This function takes in a sparse dok matrix and returns a sparse csr 
+      matrix with only the kth largest non-zeros in the array.
+    Inputs:
+      matrix - (n x m dok_sparse matrix)
+        the matrix to be filtered
+      k - (int)
+        the the rank of the k largest element to filter by.
+    Returns:
+      filtered_matrix - (n x m csr_sparse matrix)
+        the filterd matrix in question. 
+-----------------------------------------------------------------------------'''
+def filter_up_to_kth_largest(matrix, k):
+  if k < matrix.nnz:
+    #find kth largest element
+    k_largest_nnz = np.partition(matrix.values(),-k)[-k]
+    above_max = filter(lambda x: x[1] < k_largest_nnz, matrix.items())
+    indices = map(lambda key_val_pair: key_val_pair[0], above_max)
+    matrix.update(zip(indices, np.zeros(len(indices))))
+    filtered_matrix = matrix.tocsr()
+    filtered_matrix.eliminate_zeros()
+    return filtered_matrix
+  else:
+    return matrix
+
 
 '''
   f.close()
@@ -214,40 +242,6 @@ def read_in_word_index(include_word_count = False):
 
   return word_IDs
 
-'''-----------------------------------------------------------------------------
-    convert_pmi_to_window_count()
-      This function takes in a pmi matrix and returns a matrix where the (w,c)th
-      element of |D| element corpus is equal to  
-        (# of times word w appears in context c)*|D|
-      This is used to create a weighted objective function such that the (w,c)th 
-      softmax term is weighted by the number of times that context appears in 
-      the corpus(including the scaling factor |D|).
-    Input:
-      pmi (n x m) sparse matrix
-        the pmi matrix to convert
------------------------------------------------------------------------------'''
-
-'''-----------------------------------------------------------------------------
-    matrix_stats(matrix)
-      This function takes in a sparse matrix and returns a collection of 
-      statistics about the matrix in question. data reported about the matrix 
-      includes
-        ROWS, COLUMNS, NON-ZEROS,and SINGULAR_VALUES
-    Input:
-      matrix - (n x m sparse matrix)
-        the matrix in question to report matrix stats about
-    Returns:
-      stats - (dictionary)
-        a dictionary of the stats to be reported back in the where the keys 
-        are the listed matrix stats reported above. 
------------------------------------------------------------------------------'''
-def matrix_stats(matrix):
-  stats = {}
-  stats["ROWS"] = matrix.shape[0]
-  stats["COLS"] = matrix.shape[1]
-  stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=10,
-                                  return_singular_vectors=False)
-  return stats
 
 '''-----------------------------------------------------------------------------
     matrix_visualization(matrix)
@@ -260,31 +254,6 @@ def matrix_stats(matrix):
 def matrix_visualization(matrix):
   plt.spy(matrix)
   plt.show()
-
-'''-----------------------------------------------------------------------------
-    mat_vec(matrix, vector)
-       This function produces an anonymous function to be used as a linear 
-       operator in the scipy svd routine.
-    Input:
-      matrix - (n x m sparse matrix)
-        The pmi matrix to use to compute the word embeddings. 
-      k - (int)
-        The negative sample multiple factor.
-    Returns:
-      mat_vec - (m-vec -> n-vec)
-        an anonymous function which works as an O(m) linear operator which 
-        adds a rank 1 update to the pmi matrix.   (M - log(k))
-    Notes:
-      Unclear if the numpy sum function has numerical instability issues. 
------------------------------------------------------------------------------'''
-def mat_vec(matrix, k):
-  logFactor = log(k)
-  n = matrix.shape[0]
-  m = matrix.shape[1]
-  mat_vec = lambda v: (matrix * v) + (np.ones(n) * v.sum() * logFactor)
-  rmat_vec = lambda v: (matrix.T * v) + (np.ones(m) * v.sum() * logFactor)
-  return LinearOperator((n,m), mat_vec, rmatvec = rmat_vec)
-
 
 
 if __name__ == "__main__":

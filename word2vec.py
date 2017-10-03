@@ -3,10 +3,77 @@ import tensorflow as tf
 import theano as t
 import downhill
 import numpy as np
+from scipy.sparse.linalg import svds
+import matplotlib.pyplot as plt
+import process_data as pd
 
 def main():
-  downhillExample()
+  pmi = pd.read_in_pmi()
+  svd_embedding(pd.filter_up_to_kth_largest(pmi,10000))
 
+'''
+   svd_embedding(pmi, k):
+     compute a 3-dimensional embedding for a given pmi matrix and plot it 
+     using a 3-D scatter plot. 
+'''
+def svd_embedding(pmi, k):
+  if k == 0:
+    U,s = svds(pmi, k=3)
+  else:
+    U,s = svds(mat_vec(matrix, k), k=3)
+
+  fig = plt.figure()
+  ax = fig.add_subplot(111, projection ='3d')
+  # .text(x, y, z, s, zdir=None, **kwargs
+  ax.scatter(xs = U[:,0],ys = U[:,1],zs = U[:,2])
+  plt.show()
+
+
+'''-----------------------------------------------------------------------------
+    mat_vec(matrix, vector)
+       This function produces an anonymous function to be used as a linear 
+       operator in the scipy svd routine.
+    Input:
+      matrix - (n x m sparse matrix)
+        The pmi matrix to use to compute the word embeddings. 
+      k - (int)
+        The negative sample multiple factor.
+    Returns:
+      mat_vec - (m-vec -> n-vec)
+        an anonymous function which works as an O(m) linear operator which 
+        adds a rank 1 update to the pmi matrix.   (M - log(k))
+    Notes:
+      Unclear if the numpy sum function has numerical instability issues. 
+-----------------------------------------------------------------------------'''
+def mat_vec(matrix, k):
+  logFactor = log(k)
+  n = matrix.shape[0]
+  m = matrix.shape[1]
+  mat_vec = lambda v: (matrix * v) + (np.ones(n) * v.sum() * logFactor)
+  rmat_vec = lambda v: (matrix.T * v) + (np.ones(m) * v.sum() * logFactor)
+  return LinearOperator((n, m), mat_vec, rmatvec=rmat_vec)
+
+'''-----------------------------------------------------------------------------
+    matrix_stats(matrix)
+      This function takes in a sparse matrix and returns a collection of 
+      statistics about the matrix in question. data reported about the matrix 
+      includes
+        ROWS, COLUMNS, NON-ZEROS,and SINGULAR_VALUES
+    Input:
+      matrix - (n x m sparse matrix)
+        the matrix in question to report matrix stats about
+    Returns:
+      stats - (dictionary)
+        a dictionary of the stats to be reported back in the where the keys 
+        are the listed matrix stats reported above. 
+-----------------------------------------------------------------------------'''
+def matrix_stats(matrix):
+  stats = {}
+  stats["ROWS"] = matrix.shape[0]
+  stats["COLS"] = matrix.shape[1]
+  stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=10,
+                                  return_singular_vectors=False)
+  return stats
 '''
     build_objective_functions(word_count_matrix, k)
       This function takes in a n x m matrix with the scaled number of times a 
@@ -33,7 +100,7 @@ def main():
         an anonymous function which has the gradient of the 
 '''
 def build_loss_function(word_count_matrix, word_count, k):
-
+  print TODO
 
 def tensorflow_tutorial():
   vocab_size = 10000
