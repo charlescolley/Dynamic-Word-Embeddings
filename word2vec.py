@@ -3,29 +3,34 @@ import tensorflow as tf
 import theano as t
 import downhill
 import numpy as np
+from math import log
+import scipy.sparse as sp
+from scipy.sparse.linalg import svds, LinearOperator
 from scipy.sparse.linalg import svds
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import process_data as pd
 
 def main():
   pmi = pd.read_in_pmi()
-  svd_embedding(pd.filter_up_to_kth_largest(pmi,10000))
+ # pmi = sp.rand(100,100,format='dok')
+  svd_embedding(pd.filter_up_to_kth_largest(pmi,100000),0)
 
 '''
    svd_embedding(pmi, k):
      compute a 3-dimensional embedding for a given pmi matrix and plot it 
      using a 3-D scatter plot. 
 '''
-def svd_embedding(pmi, k):
+def svd_embedding(matrix, k):
   if k == 0:
-    U,s = svds(pmi, k=3)
+    results = svds(matrix, k=3)
   else:
-    U,s = svds(mat_vec(matrix, k), k=3)
+    results = svds(mat_vec(matrix, k), k=3)
 
   fig = plt.figure()
   ax = fig.add_subplot(111, projection ='3d')
   # .text(x, y, z, s, zdir=None, **kwargs
-  ax.scatter(xs = U[:,0],ys = U[:,1],zs = U[:,2])
+  ax.scatter(xs = results[0][:,0],ys = results[0][:,1],zs = results[0][:,2])
   plt.show()
 
 
@@ -74,6 +79,67 @@ def matrix_stats(matrix):
   stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=10,
                                   return_singular_vectors=False)
   return stats
+
+'''-----------------------------------------------------------------------------
+   svd_grad_U(P,U,V)
+     This function returns the gradient of the function 
+     
+     .5*\|P - UV^T\|_F^2 +
+        \frac{\lambda_1}{2}\|U\|_F^2 + \frac{\lambda_1}{2}\|U\|_F^2
+        
+     which evaluates to (P + I\lambda_2)V - U(I\lambda + V^TV). The function 
+     will output a dense (n x d) matrix where n is the number of words in the 
+     vocabulary and d is the dimension of the word embedding.
+   Inputs:
+     P - (n x n sparse matrix)
+       The PMI matrix to be passed in. 
+     U - (n x d dense matrix)
+       The word embedding matrix.
+     V - (n x d dense matrix)
+       The context embedding matrix.
+     lambda_1, lambda_2 - (double)
+       Smoothing constants.
+   Returns:
+     grad_U - (n x d dense matrix)
+       The gradient with respect to U. 
+   Notes:
+     Currently the implementation will compute the gradient in one fell 
+     swoop, as the input matrix P gets larger, we will need to move to batch 
+     processing to manage the data. 
+-----------------------------------------------------------------------------'''
+def svd_grad_U(P, U, V):
+  Gram_V = grammian(V)
+
+'''-----------------------------------------------------------------------------
+    grammian(A):
+      This function takes in a matrix and returns the gramian, computed in an 
+      efficient fashion. 
+    Inputs:
+      A - (n x m dense matrix)
+        The matrix to return the grammian for.
+    Returns
+      GramA- (m x m dense matrix)
+        The grammian of A.
+    TODO:
+      check for under/over flow
+-----------------------------------------------------------------------------'''
+def grammian(A):
+  (n,m) = A.shape
+  GramA = np.empty((m,m))
+  for i in range(n):
+    ith_col = A[:,i]
+    for j in range(i):
+      if j == i:
+        #check if iterating over range() is faster
+        GramA[i,i] = reduce(lambda sum, x: x**2 + sum, ith_col, 0.0)
+      else:
+        entry = 0.0
+        for k in range(n):
+          entry += A[k,i]*A[j,k]
+        GramA[i,j] = entry
+        GramA[j,i] = entry
+  return GramA
+
 '''
     build_objective_functions(word_count_matrix, k)
       This function takes in a n x m matrix with the scaled number of times a 
@@ -101,6 +167,8 @@ def matrix_stats(matrix):
 '''
 def build_loss_function(word_count_matrix, word_count, k):
   print TODO
+
+
 
 def tensorflow_tutorial():
   vocab_size = 10000
@@ -151,4 +219,4 @@ def downhill_example():
 
 
 if __name__ == "__main__":
-  main()
+    main()

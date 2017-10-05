@@ -1,8 +1,6 @@
 import scipy.sparse as sp
-from scipy.sparse.linalg import svds, LinearOperator
 from sys import argv
 import matplotlib.pylab as plt
-from math import log
 import numpy as np
 import cProfile
 from functools import reduce
@@ -21,7 +19,10 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-
+  A = np.random.rand(3,3)
+  print A
+  print grammian(A)
+  print A.T*A
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
@@ -140,8 +141,6 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   pmi = sp.dok_matrix(shape)
 
   for i in xrange(total_edge_count):
-    print i
-    print edges[i][0], edges[i][1], edges[i][2]
     pmi[edges[i][0], edges[i][1]] = edges[i][2]
     if display_progress:
       edge_count += 1
@@ -178,7 +177,6 @@ def filter_up_to_kth_largest(matrix, k):
     return filtered_matrix
   else:
     return matrix
-
 
 '''
   f.close()
@@ -241,7 +239,6 @@ def read_in_word_index(include_word_count = False):
       word_IDs[int(word_stat[0])] = word_stat[1]
 
   return word_IDs
-
 
 '''-----------------------------------------------------------------------------
     matrix_visualization(matrix)
