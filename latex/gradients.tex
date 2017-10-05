@@ -24,7 +24,9 @@
 \vspace{10 mm}
    Objective function:\\
    $ \displaystyle\argmax_{V_c, V_w} 
-     = \displaystyle\Sigma_{(w,c) \in D} \log(\sigma(\langle v_c, v_w \rangle )) +      \displaystyle\Sigma_{(w,c) \in D'} \log(\sigma(-\langle v_c, v_w \rangle)) $ 
+     = \displaystyle\Sigma_{(w,c) \in D} 
+     \log(\sigma(\langle v_c, v_w\rangle))  +\displaystyle\Sigma_{(w,c)v\in D'} 
+         \log(\sigma(-\langle v_c, v_w \rangle)) $
 
    \[
       \nabla_{v_c} (\langle v_c, v_w \rangle)_k = \frac{\partial}{\partial (v_c)_k}\displaystyle \sum_{i}(v_c)_i(v_w)_i = \frac{\partial}{\partial (v_c)_k}(\displaystyle \sum_{i \neq k}(v_c)_i(v_w)_i + (v_c)_k(v_w)_k) = (v_w)_k
@@ -44,4 +46,45 @@
       = (1 - \sigma(\langle v_c, v_w \rangle)))(v_w)_k 
     \]
     again by symmetry we can show that the gradient with respect to $ v_w $ is similarly $ \nabla_{v_w}(log(\sigma(\langle v_c, v_w \rangle))) = (1 - \sigma(\langle v_c, v_w \rangle))v_c $
+    
+    
+
+   
+   \newpage
+   Let $ P \in \mathbb{R}^{n \times n} $ and $ U, V \in \mathbb{R}^{n \times d} $ and let $ f = \|P - UV^T\|_F^2 $
+   \begin{align*}
+     (\nabla_U f)_{ij} =& \frac{\partial}{\partial U_{ij}}\|P - UV^T\|_F^2 = 
+     \frac{\partial}{\partial U_{ij}} (\displaystyle \sum_{i_1,i_2 =1}^n(P_{i_1,i_2} 
+                     - \displaystyle\sum_{i_3}^d U_{i_1,i_3}V^T_{i_3,i_2})^2)  \\
+       =& \frac{\partial}{\partial U_{ij}} (\lbrack \displaystyle \sum_{i_1 \neq i,i_2 =1}^n(P_{i_1,i_2} 
+       - \displaystyle\sum_{i_3}^d U_{i_1,i_3}V^T_{i_3,i_2})^2 \rbrack + (P_{i,i_2} 
+       - \displaystyle\sum_{i_3}^d U_{i,i_3}V^T_{i_3,i_2})^2)\\
+       =& \frac{\partial}{\partial U_{ij}}\displaystyle\sum_{i_2}^n(P_{i,i_2} 
+       - \displaystyle\sum_{i_3}^d U_{i,i_3}V^T_{i_3,i_2})^2 \\
+       =& \displaystyle\sum_{i_2}^n2(P_{i,i_2} 
+       - \displaystyle\sum_{i_3}^d U_{i,i_3}V^T_{i_3,i_2})\frac{\partial}{\partial U_{ij}}(P_{i,i_2} 
+       - \displaystyle\sum_{i_3}^d U_{i,i_3}V^T_{i_3,i_2}) \\
+       =& \displaystyle\sum_{i_2} 2(P_{i,i_2} 
+       - \displaystyle\sum_{i_3}^d U_{i,i_3}V^T_{i_3,i_2})(V^T_{j,i_2}) \\
+       =& \displaystyle\sum_{i_2} 2(P_{i,i_2} 
+       - (UV^T)_{i,i_2})(V_{i_2,j}) = 2(PV - UV^TV)_{ij}
+   \end{align*}
+ 
+  \[
+    (\nabla_Vf)_{ij} 
+    = \frac{\partial}{\partial V_{ij}}\|P - UV^T\|^2_F = \frac{\partial}{\partial V_{ij}}\|P^T - VU^T\|^2_F
+  \]
+   	Now note that by the generality of the last gradient computation we can show that $ \nabla_Vf = 2(P^TU - VU^TU) $.
+   	
+   	Consider the function $ g = \lambda\|U\|_F^2 $ for $ \lambda \in \mathbb{R} $, then the gradient with respect to $ U $ is 
+   	
+   	\[ 
+   	 (\nabla_{U}g)_{ij} 
+   	   = \lambda
+   	     \frac{\partial}{\partial U_{ij}}(\sum_{i_1,i_2 = 1}^{n,d}U^2_{i_1,i_2})
+   	   = \lambda \frac{\partial}{\partial U_{ij}}
+   	     (\lbrack \sum_{i_1 \neq i,i_2 \neq j}^{n,d}U^2_{i_1,i_2}\rbrack + U_{ij}^2) = 2\lambda U_{ij}
+   	\]
+   	
+   	
 \end{document}
