@@ -110,7 +110,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
       new_indices[context] = clean_indices
       clean_indices += 1
 
-    if new_indices[context] <= max_words or new_indices[word] <= max_words:
+    if new_indices[context] < max_words and new_indices[word] < max_words:
       edge_val = np.float(edge[2])
       if return_scaled_count:
         edge_val =  np.exp(edge_val)* \
@@ -154,7 +154,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
           .format((edge_count/float(total_edge_count))*100,
                   edge_count)
 
-  return pmi, clean_indices
+  return pmi, new_indices
 '''-----------------------------------------------------------------------------
     filter_up_to_kth_largest(matrix, k)
       This function takes in a sparse dok matrix and returns a sparse csr 

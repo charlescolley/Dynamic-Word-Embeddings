@@ -4,27 +4,23 @@ import theano as t
 import downhill
 import numpy as np
 from math import log
-import scipy.sparse as sp
 from scipy.sparse.linalg import svds, LinearOperator
-from scipy.sparse.linalg import svds
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import process_data as pd
+import plotly.offline as py
+import plotly.graph_objs as go
 
 def main():
   A = np.random.rand(3,3)
-  print A, '\n'
-  print grammian(A), '\n'
-  print np.dot(A.T, A)
+  plot_embeddings(A)
   #pmi = pd.read_in_pmi()
   #pmi = sp.rand(100,100,format='dok')
   #svd_embedding(pd.filter_up_to_kth_largest(pmi,100000),0)
 
-'''
+'''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
      compute a 3-dimensional embedding for a given pmi matrix and plot it 
      using a 3-D scatter plot. 
-'''
+-----------------------------------------------------------------------------'''
 def svd_embedding(matrix, k):
   if k == 0:
     results = svds(matrix, k=3)
@@ -36,6 +32,50 @@ def svd_embedding(matrix, k):
   # .text(x, y, z, s, zdir=None, **kwargs
   ax.scatter(xs = results[0][:,0],ys = results[0][:,1],zs = results[0][:,2])
   plt.show()
+
+'''-----------------------------------------------------------------------------
+    plot_embeddings(embedding, words)
+      This function takes in an arbitrary 3 dimensional embedding and plots 
+      it using plotly's offline plotting library. If a dictionary linking the 
+      indices of the words in the PMI matrix to the actual words is passed 
+      in, then the plot will add the words in such that scrolling over them 
+      will display the words. 
+    Input:
+      embedding - (n x 3 dense matrix)
+        the embeddings to be plotted, ideally from PCA or t-SNE
+      words - (dictionary)
+        a dictionary linking the indices to the words they represent. keys 
+        are indices, values are the text.
+-----------------------------------------------------------------------------'''
+def plot_embeddings(embedding, words =None):
+  trace1 = go.Scatter3d(
+    x = embedding[:,0],
+    y = embedding[:, 1],
+    z = embedding[:, 2],
+
+    mode = 'markers',
+           marker = dict(
+      color='rgb(127, 127, 127)',
+      size=12,
+      symbol='circle',
+      line=dict(
+        color='rgb(204, 204, 204)',
+        width=1
+      ),
+      opacity=0.9
+    )
+  )
+  data = [trace1]
+  layout = go.Layout(
+    margin=dict(
+      l=0,
+      r=0,
+      b=0,
+      t=0
+    )
+  )
+  fig = go.Figure(data=data,layout = layout)
+  py.plot(fig,filename='embedding')
 
 
 '''-----------------------------------------------------------------------------
@@ -112,7 +152,7 @@ def matrix_stats(matrix):
      processing to manage the data. 
 -----------------------------------------------------------------------------'''
 def svd_grad_U(P, U, V, lambda_1, lambda_2):
-  (n, d) = U.shape()
+  (n, d) = U.shape
   Gram_V = grammian(V)
   if lambda_1 != 0:
     for i in range(d):
@@ -140,14 +180,14 @@ def svd_grad_U(P, U, V, lambda_1, lambda_2):
         The matrix to return the grammian for.
     Returns
       GramA- (m x m dense matrix)
-        The grammian of A.
+        The grammian of A (A^TA).
     TODO:
       check for under/over flow
 -----------------------------------------------------------------------------'''
 def grammian(A):
   (n,m) = A.shape
   Gram_A = np.empty([m,m])
-  for i in range(n):
+  for i in range(m):
     ith_col = A[:,i]
     for j in range(i+1):
       if j == i:
