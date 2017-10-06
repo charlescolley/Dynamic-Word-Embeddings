@@ -19,10 +19,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  A = np.random.rand(3,3)
-  print A
-  print grammian(A)
-  print A.T*A
+  print "blah"
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
@@ -45,12 +42,15 @@ def test_func():
         line ->  word_index, context_index, pmi_value
       The file then builds a scipy dok_matrix and returns it.
     Input:
-      filename - (string) 
+      filename - (optional string) 
         location of the file.
       return_scaled_count - (optional bool)
         instead returning the pmi for a word context pair, we can return the 
         number of times that the pairs appears together in a text corpus, 
         this provides naive weights for the loss function.  
+      max_words - (optional int)
+        only creates the submatrix PMI[:max_words,:max_words] rather than 
+        processing the entire PMI matrix.
       display_progress - (optional bool) 
         display statements updating the progress of the file load or not.
     Returns:
@@ -65,7 +65,7 @@ def test_func():
     the return_scaled_count option invalid
 -----------------------------------------------------------------------------'''
 def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
-                display_progress = False):
+                max_words = None, display_progress = False):
   f = open(filename,"r")
   f.next() # skip word, context, pmi line
   total_edge_count = 0
@@ -73,6 +73,8 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   edges = {}
   i_max = -1
   j_max = -1
+  if max_words == None:
+    max_words = float("inf")
 
   word_indices = read_in_word_index(return_scaled_count)
 
@@ -108,21 +110,22 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
       new_indices[context] = clean_indices
       clean_indices += 1
 
-    edge_val = np.float(edge[2])
-    if return_scaled_count:
-      edge_val =  np.exp(edge_val)* \
-                  word_indices[word_ID][1] * word_indices[context_ID][1]
+    if new_indices[context] <= max_words or new_indices[word] <= max_words:
+      edge_val = np.float(edge[2])
+      if return_scaled_count:
+        edge_val =  np.exp(edge_val)* \
+                    word_indices[word_ID][1] * word_indices[context_ID][1]
 
-    edges[total_edge_count] = [new_indices[word], new_indices[context],
-                               edge_val]
-    #check if new indices are largest row or column found
-    if new_indices[word] > i_max:
-      i_max = new_indices[word]
+      edges[total_edge_count] = [new_indices[word], new_indices[context],
+                                 edge_val]
+      #check if new indices are largest row or column found
+      if new_indices[word] > i_max:
+        i_max = new_indices[word]
 
-    if new_indices[context] > j_max:
-      j_max = new_indices[context]
+      if new_indices[context] > j_max:
+        j_max = new_indices[context]
 
-    total_edge_count += 1
+      total_edge_count += 1
 
   f.close()
 

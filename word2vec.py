@@ -12,9 +12,13 @@ from mpl_toolkits.mplot3d import Axes3D
 import process_data as pd
 
 def main():
-  pmi = pd.read_in_pmi()
- # pmi = sp.rand(100,100,format='dok')
-  svd_embedding(pd.filter_up_to_kth_largest(pmi,100000),0)
+  A = np.random.rand(3,3)
+  print A, '\n'
+  print grammian(A), '\n'
+  print np.dot(A.T, A)
+  #pmi = pd.read_in_pmi()
+  #pmi = sp.rand(100,100,format='dok')
+  #svd_embedding(pd.filter_up_to_kth_largest(pmi,100000),0)
 
 '''
    svd_embedding(pmi, k):
@@ -87,7 +91,7 @@ def matrix_stats(matrix):
      .5*\|P - UV^T\|_F^2 +
         \frac{\lambda_1}{2}\|U\|_F^2 + \frac{\lambda_1}{2}\|U\|_F^2
         
-     which evaluates to (P + I\lambda_2)V - U(I\lambda + V^TV). The function 
+     which evaluates to (P + I\lambda_2)V - U(I\lambda_1 + V^TV). The function 
      will output a dense (n x d) matrix where n is the number of words in the 
      vocabulary and d is the dimension of the word embedding.
    Inputs:
@@ -107,8 +111,25 @@ def matrix_stats(matrix):
      swoop, as the input matrix P gets larger, we will need to move to batch 
      processing to manage the data. 
 -----------------------------------------------------------------------------'''
-def svd_grad_U(P, U, V):
+def svd_grad_U(P, U, V, lambda_1, lambda_2):
+  (n, d) = U.shape()
   Gram_V = grammian(V)
+  if lambda_1 != 0:
+    for i in range(d):
+      Gram_V[i,i] += lambda_1
+  UVTV = np.dot(U, Gram_V)
+
+  #temporarily add in the lambda_2 term to P
+  if lambda_2 != 0.0:
+    for i in range(n):
+      P[i,i] += lambda_2
+  PV = P * V
+  #remove diagonal terms
+  if lambda_2 != 0:
+    for i in range(n):
+      P[i,i] -= lambda_2
+  return PV + UVTV
+
 
 '''-----------------------------------------------------------------------------
     grammian(A):
@@ -125,20 +146,20 @@ def svd_grad_U(P, U, V):
 -----------------------------------------------------------------------------'''
 def grammian(A):
   (n,m) = A.shape
-  GramA = np.empty((m,m))
+  Gram_A = np.empty([m,m])
   for i in range(n):
     ith_col = A[:,i]
-    for j in range(i):
+    for j in range(i+1):
       if j == i:
         #check if iterating over range() is faster
-        GramA[i,i] = reduce(lambda sum, x: x**2 + sum, ith_col, 0.0)
+        Gram_A[i,i] = reduce(lambda sum, x: x**2 + sum, ith_col, 0.0)
       else:
         entry = 0.0
         for k in range(n):
-          entry += A[k,i]*A[j,k]
-        GramA[i,j] = entry
-        GramA[j,i] = entry
-  return GramA
+          entry += A[k,i]*A[k,j]
+        Gram_A[i,j] = entry
+        Gram_A[j,i] = entry
+  return Gram_A
 
 '''
     build_objective_functions(word_count_matrix, k)
