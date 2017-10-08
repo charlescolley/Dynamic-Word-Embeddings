@@ -3,6 +3,10 @@ from sys import argv
 import matplotlib.pylab as plt
 import numpy as np
 import cProfile
+import os
+import re
+from scipy.sparse.linalg import svds
+from sklearn.manifold import TSNE
 from functools import reduce
 import csv
 #from memory_profiler import profile
@@ -19,9 +23,49 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  print "blah"
+  sequential_svd_tSNE()
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
+
+'''-----------------------------------------------------------------------------
+    sequetial_svd_tSNE()
+-----------------------------------------------------------------------------'''
+def sequential_svd_tSNE():
+  cwd = os.getcwd()
+
+  #check if places for svd components and tsne exist
+  path = os.path.join(cwd, 'svd')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  path = os.path.join(cwd, 'tSNE')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+
+  files = os.listdir(cwd)
+  #only run on PMI matrices
+  pattern = re.compile("[\w]*PMI_.")
+  files = filter(lambda file: re.match(pattern, file), files)
+  for file in files:
+    name, extension = file.split('.')
+    print "starting: " + name
+
+    PMI_matrix, indices = read_in_pmi(file, max_words=100)
+    print "read in:" + name
+
+    U, sigma, Vt = svds(PMI_matrix,k=50)
+    np.save("svd/" + name + "svdU.npy",U)
+    np.save("svd/" + name + "svdSigma.npy", sigma)
+    np.save("svd/" + name + "svdVt.npy", Vt)
+
+    print "computed and saved matrix: " + name + "SVD"
+
+    embedding = TSNE(n_components=3).fit_transform(U)
+    np.save("tSNE/" + name + "svdU_TSNE.npy", embedding)
+
+    print "computed and saved matrix " + name + "TSNE"
+
 
 def test_func():
   f = open(FILE_NAME,"r")
@@ -102,6 +146,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
               word_indices[context_ID][0]
 
 
+
     if word not in new_indices:
       new_indices[word] = clean_indices
       clean_indices += 1
@@ -154,7 +199,12 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
           .format((edge_count/float(total_edge_count))*100,
                   edge_count)
 
-  return pmi, new_indices
+
+  used_indices = \
+    {value: key for key, value in new_indices.iteritems() if value < max_words}
+
+  return pmi, used_indices
+
 '''-----------------------------------------------------------------------------
     filter_up_to_kth_largest(matrix, k)
       This function takes in a sparse dok matrix and returns a sparse csr 

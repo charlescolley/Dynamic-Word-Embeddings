@@ -8,13 +8,15 @@ from scipy.sparse.linalg import svds, LinearOperator
 import matplotlib.pyplot as plt
 import plotly.offline as py
 import plotly.graph_objs as go
+import process_data as pd
+from sklearn.manifold import TSNE
 
 def main():
-  A = np.random.rand(3,3)
-  plot_embeddings(A)
-  #pmi = pd.read_in_pmi()
-  #pmi = sp.rand(100,100,format='dok')
-  #svd_embedding(pd.filter_up_to_kth_largest(pmi,100000),0)
+  pmi, indices = pd.read_in_pmi(max_words=5000)
+  U, S, Vt = svds(pmi, k=50)
+  embedding = TSNE(n_components=3).fit_transform(U)
+  plot_embeddings(embedding, indices)
+
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -48,12 +50,14 @@ def svd_embedding(matrix, k):
         are indices, values are the text.
 -----------------------------------------------------------------------------'''
 def plot_embeddings(embedding, words =None):
+
   trace1 = go.Scatter3d(
     x = embedding[:,0],
     y = embedding[:, 1],
     z = embedding[:, 2],
 
-    mode = 'markers',
+    mode = 'text',
+    hoverinfo = words.values(),
            marker = dict(
       color='rgb(127, 127, 127)',
       size=12,
@@ -62,6 +66,7 @@ def plot_embeddings(embedding, words =None):
         color='rgb(204, 204, 204)',
         width=1
       ),
+
       opacity=0.9
     )
   )
@@ -75,7 +80,9 @@ def plot_embeddings(embedding, words =None):
     )
   )
   fig = go.Figure(data=data,layout = layout)
-  py.plot(fig,filename='embedding')
+  py.plot(fig,filename='embedding.html')
+
+  print "blasdhas"
 
 
 '''-----------------------------------------------------------------------------
