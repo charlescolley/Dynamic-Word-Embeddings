@@ -82,8 +82,6 @@ def plot_embeddings(embedding, words =None):
   fig = go.Figure(data=data,layout = layout)
   py.plot(fig,filename='embedding.html')
 
-  print "blasdhas"
-
 
 '''-----------------------------------------------------------------------------
     mat_vec(matrix, vector)

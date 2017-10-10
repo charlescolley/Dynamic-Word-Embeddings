@@ -7,6 +7,8 @@ import os
 import re
 from scipy.sparse.linalg import svds
 from sklearn.manifold import TSNE
+import word2vec as w2v
+import pickle
 from functools import reduce
 import csv
 #from memory_profiler import profile
@@ -23,12 +25,47 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  sequential_svd_tSNE()
+  load_tSNE_word_cloud(2005)
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
 '''-----------------------------------------------------------------------------
+    load_tSNE_word_cloud()
+      This function reads in precomputed tSNE .npy files in the /tSNE folder 
+      and uses the offline plotly plotter. This function is to be run in the 
+      folder with all the PMI matrices, the program will access the 
+      subfolders as needed. 
+    Inputs:
+      year - (int)
+        the year of the PMI file to load and display. Throws an error if year is
+        not available.  
+-----------------------------------------------------------------------------'''
+def load_tSNE_word_cloud(year):
+
+  #get the indices loaded in the PMI matrix
+  pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+  pmi_matrix_file = filter(lambda x: re.match(pattern, x), os.listdir(os.getcwd()))
+  print pmi_matrix_file
+  _, indices = read_in_pmi(pmi_matrix_file[0])
+
+  #get all the files in svd directory which match PMI_[year]svdU_TSNE
+  pattern = re.compile("[\w]*PMI_"+ str(year) + "svdU_TSNE.")
+  file = filter(lambda x: re.match(pattern,x),os.listdir(os.getcwd() +
+                                                         "/tSNE") )
+  embedding = np.load("tSNE/"+ file[0])
+  w2v.plot_embeddings(embedding, indices)
+
+
+'''-----------------------------------------------------------------------------
     sequetial_svd_tSNE()
+      This funciton will process all of the truncated svd factorizations and 
+      3 dimension tSNE embeddings of all the PMI matrices in the folder the 
+      program is being run in. Specifically the svd factorizations are the first
+      50 singulars vectors/values. The program will also create folders in the 
+      directory to store the svd and tSNE away from the orignal matrix files.
+    Note:
+      This program will fail if there are other files in directory which 
+      match the "[\w]*PMI_." regex.
 -----------------------------------------------------------------------------'''
 def sequential_svd_tSNE():
   cwd = os.getcwd()
@@ -41,7 +78,6 @@ def sequential_svd_tSNE():
   path = os.path.join(cwd, 'tSNE')
   if not os.path.exists(path):
     os.makedirs(path)
-
 
   files = os.listdir(cwd)
   #only run on PMI matrices
@@ -66,6 +102,35 @@ def sequential_svd_tSNE():
 
     print "computed and saved matrix " + name + "TSNE"
 
+
+'''-----------------------------------------------------------------------------
+    get_word_indices()
+      This function reads in all the files in a folder and saves the words 
+      loaded into the PMI matrices as a pickle file in the wordIDs folder it 
+      creates.  
+-----------------------------------------------------------------------------'''
+def get_word_indices():
+  cwd = os.getcwd()
+
+  # check if places for svd components and tsne exist
+  path = os.path.join(cwd, 'wordIDs')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  pattern = re.compile("[\w]*PMI_.")
+  files = filter(lambda file: re.match(pattern, file), files)
+
+  for file in files:
+    name, extension = file.split('.')
+    print "starting: " + name
+
+    _, indices = read_in_pmi(file, max_words=100)
+    print "read in:" + name
+
+    with open("/wordIDS" + name +'wordIDs.pickle', 'wb') as handle:
+      pickle.dump(indices, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    print "saved" + name
 
 def test_func():
   f = open(FILE_NAME,"r")
