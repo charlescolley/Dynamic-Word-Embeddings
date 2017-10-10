@@ -46,7 +46,7 @@ def load_tSNE_word_cloud(year):
   pattern = re.compile("[\w]*PMI_" + str(year) + ".")
   pmi_matrix_file = filter(lambda x: re.match(pattern, x), os.listdir(os.getcwd()))
   print pmi_matrix_file
-  _, indices = read_in_pmi(pmi_matrix_file[0])
+  _, indices = read_in_pmi(pmi_matrix_file[0],display_progress=True)
 
   #get all the files in svd directory which match PMI_[year]svdU_TSNE
   pattern = re.compile("[\w]*PMI_"+ str(year) + "svdU_TSNE.")

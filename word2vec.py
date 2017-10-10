@@ -1,7 +1,4 @@
-import theano.tensor as T
 import tensorflow as tf
-import theano as t
-import downhill
 import numpy as np
 from math import log
 from scipy.sparse.linalg import svds, LinearOperator
@@ -236,12 +233,14 @@ def build_loss_function(word_count_matrix, word_count, k):
 
 
 
-def tensorflow_tutorial():
-  vocab_size = 10000
-  embedding_size = 100
-  embeddings = tf.Variable(tf.random_uniform([vocab_size, embedding_size],-1,1))
+def tensorflow_funcs():
+  d = 100
+  n = 1000
+  U = tf.get_variable("U", np.random.rand(n,d))
+  V = tf.get_variable("V", np.random.rand(n,d))
 
 
+'''
 def theano_code():
   x = t.shared(np.ones(2),'x')
   y = t.shared(np.ones(2), 'y')
@@ -274,7 +273,7 @@ def downhill_example():
   #downhill.minimize(loss,[sizes, prices],inputs = [x,y])
 
   print m, b
-
+'''
 
 #minimize a quadratic form
 
