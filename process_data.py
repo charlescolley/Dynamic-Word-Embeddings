@@ -117,6 +117,7 @@ def get_word_indices():
   if not os.path.exists(path):
     os.makedirs(path)
 
+  files = os.listdir(cwd)
   pattern = re.compile("[\w]*PMI_.")
   files = filter(lambda file: re.match(pattern, file), files)
 
