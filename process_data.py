@@ -5,6 +5,7 @@ import numpy as np
 import cProfile
 import os
 import re
+import random
 from scipy.sparse.linalg import svds
 from sklearn.manifold import TSNE
 import word2vec as w2v
@@ -25,7 +26,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  print partial_insertion_sort([5,3,2,7,1, -2, 3, 0], lambda x,y: x > y, 3)
+  print "blah"
+  # test_word_embedding()
   #load_tSNE_word_cloud(2000)
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
@@ -302,6 +304,67 @@ def filter_up_to_kth_largest(matrix, k):
     return matrix
 
 '''-----------------------------------------------------------------------------
+    test_word_embedding()
+      This function will load in a tSNE embedding and will query the user for 
+    words in the embedding and will report the k closest neighbors to that word
+    in the embedding.
+    Note:
+      To be run in the main folder with all the PMI matrices.
+-----------------------------------------------------------------------------'''
+def test_word_embedding():
+  get_year = True
+  while get_year:
+    year = raw_input("Which year do you want to load?:")
+    pattern = re.compile("[\w]*PMI_"+ year + "svdU_TSNE.")
+    files = os.listdir(os.getcwd() + "/tSNE")
+    file = filter(lambda x: re.match(pattern,x),files )
+    if not file:
+      print "year not found, please choose from the available year"
+      for f in files:
+        print f
+    else:
+      get_year = False
+      
+  #load in tSNE file
+  embedding = np.load("tSNE/" + file[0])
+  n = embedding.shape[0]
+  #load indices
+  pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
+  files =  os.listdir(os.getcwd() + "/wordIDs")
+  IDs_file = filter(lambda x: re.match(pattern, x),files)
+  with open("wordIDs/" + IDs_file[0], 'rb') as handle:
+    indices = pickle.load(handle)
+  #flip the indices
+  indices = {value: key for key, value in indices.iteritems()}
+  get_k = True
+  while get_k:
+    k = int(raw_input("How many nearest neighbors do you want"))
+    if k < 0 or k > n:
+      print "invalid choice of k= {}, must be postive and less than {}".format(k,n)
+    else:
+      get_k = False
+    
+  get_word = True
+  while get_word:
+    word = raw_input("Which word do you want to search for? \n" + \
+                     "type __random__ for a random selection of 10 words to choose from \n" + \
+                     "type __quit__ to exit\n")
+    if word == "__quit__":
+      get_word = False
+    elif word == "__random__":
+      for i in range(10):
+        print random.choice(indices.keys())
+    elif word not in indices.keys():
+      print "{} not found, please enter another word".format(word)
+    else:
+      neighbors = k_nearest_neighbors(word, k, embedding, indices)
+      for neighbor in neighbors:
+        print neighbor
+
+      
+
+  
+'''-----------------------------------------------------------------------------
     k_nearest_neighbors(word, k, embedding, indices)
       This function takes in a word and number of neighbors and returns that 
       number of nearest neighbors in the given embedding. The indices are a 
@@ -332,17 +395,11 @@ def k_nearest_neighbors(word, k, embedding, indices):
 
   #invert the dictionary
   indices = {value:key for key, value in indices.iteritems()}
-  
-  k_nearest_neighbors = []
 
-  #take top k elements exluding the current word
-  if word_index >= k:
-    while i < k:
-      k_nearest_neighbors.append(
-        (indices[i],np.linalg.norm(embedding[i,:] - word_position)))
-      i += 1
-  else:
-    print "blah"
+  to_sort = map(lambda x: (indices[x],embedding[x,:]),range(n))
+  comes_before = lambda x,y: np.linalg.norm(x[1] - word_position) < \
+                             np.linalg.norm(y[1] - word_position)   
+  return partial_insertion_sort(to_sort,comes_before,k)
 
 '''-----------------------------------------------------------------------------
     partial_insertion_sort(list,insert_before,k)
