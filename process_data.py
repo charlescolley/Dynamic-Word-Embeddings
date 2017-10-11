@@ -25,7 +25,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  load_tSNE_word_cloud(2000)
+  print partial_insertion_sort([5,3,2,7,1, -2, 3, 0], lambda x,y: x > y, 3)
+  #load_tSNE_word_cloud(2000)
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
@@ -343,27 +344,49 @@ def k_nearest_neighbors(word, k, embedding, indices):
   else:
     print "blah"
 
-
+'''-----------------------------------------------------------------------------
+    partial_insertion_sort(list,insert_before,k)
+      This function takes in a list of elements, a function to compare any 
+      two elements in the list and return a bool, and a integer indicating 
+      the size of the sorted list to return. 
+    Input:
+      list - ('a list)
+        a list of 'a elements
+      insert_before- ('a x 'a |-> bool)
+        a function which takes two of the elements in the list and returns a 
+        bool if the first element should come before the second element in 
+        the function's parameters.
+      k - (integer)
+        the size of the sorted list to return. 
+    Return:
+      sorted_list - ('a list)
+        the list of the k top sorted elements.
+-----------------------------------------------------------------------------'''
 def partial_insertion_sort(list, insert_before, k):
   sorted_list = []
+  length = 0
   for element in list:
-    if sorted_list: # is non-empty
-      rank = k
-      for sorted_element in reversed(sorted_list):
-        if rank != k: #not at end of sorted list
-          if insert_before(element, sorted_element):
-            #move previous element back one in the list
-            sorted_list[k] = sorted_list[k-1]
-            k -= 1 #increase rank
-          else:
-            #copy where it is
-            sorted_list[k] = element
-        else:
-          if not insert_before(element, sorted_element):
-            #if shouldn't be insert, move to next element
-            break
-    else:
+    if length == 0:
       sorted_list.append(element)
+      length += 1
+    elif length >= k:
+      for i in range(length - 1,-1,-1):
+        if insert_before(element, sorted_list[i]):
+          if i != length -1:
+            sorted_list[i+1] = sorted_list[i]
+          sorted_list[i] = element
+        else:
+          break
+    else:
+      for i in range(length -1,-1,-1):
+        if insert_before(element, sorted_list[i]):
+          if i == length -1:
+            sorted_list.append(sorted_list[i])
+            length +=1
+          else:
+            sorted_list[i+1] = sorted_list[i]
+          sorted_list[i] = element
+
   return sorted_list
         
 def profile_read_in_function():
