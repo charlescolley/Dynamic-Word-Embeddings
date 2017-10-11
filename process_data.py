@@ -317,7 +317,7 @@ def filter_up_to_kth_largest(matrix, k):
         The given embedding of the vocabulary
       indices - (dictionary)
         a dictionary linking the indices of the embedding to the words they 
-        embed.
+        embed. Here the keys are the words and the indices are the values.
     Returns:  
 -----------------------------------------------------------------------------'''
 def k_nearest_neighbors(word, k, embedding, indices):
@@ -329,49 +329,43 @@ def k_nearest_neighbors(word, k, embedding, indices):
   word_index = indices[word]
   word_postition = embedding[word_index,:]
 
+  #invert the dictionary
+  indices = {value:key for key, value in indices.iteritems()}
+  
   k_nearest_neighbors = []
 
   #take top k elements exluding the current word
   if word_index >= k:
     while i < k:
-      
-      k_nearest_neighbors.extend(())
+      k_nearest_neighbors.append(
+        (indices[i],np.linalg.norm(embedding[i,:] - word_position)))
+      i += 1
+  else:
+    print "blah"
 
 
-  i = 0
-  while i < n:
-
-
-'''
-  f.close()
-  f = open(filename, "r")
-  f.next()
-
-  #initialize counts for updating user as file loads
-  if display_progress:
-    update_frequency = total_edge_count/UPDATE_FREQUENCY_CONSTANT
-    edge_count = 0
-
-  shape = (i_max+1,j_max+1)
-  #initialize sparse matrix
-  pmi = sp.dok_matrix(shape)
-
-  #reiterate through to store non-zeros
-  for line in f:
-    edge = line.split(',')
-    i = new_indices[word_indices[int(edge[0])]]  #arrays are indexed by 0
-    j = new_indices[word_indices[int(edge[1])]]
-
-    pmi[i, j] = np.float(edge[2])
-    if display_progress:
-      edge_count += 1
-      if edge_count > 100:
-        break
-      if edge_count % update_frequency == 0:
-        print "{}% complete, {} edges read in"\
-          .format((edge_count/total_edge_count)*100,
-                  edge_count)
-'''
+def partial_insertion_sort(list, insert_before, k):
+  sorted_list = []
+  for element in list:
+    if sorted_list: # is non-empty
+      rank = k
+      for sorted_element in reversed(sorted_list):
+        if rank != k: #not at end of sorted list
+          if insert_before(element, sorted_element):
+            #move previous element back one in the list
+            sorted_list[k] = sorted_list[k-1]
+            k -= 1 #increase rank
+          else:
+            #copy where it is
+            sorted_list[k] = element
+        else:
+          if not insert_before(element, sorted_element):
+            #if shouldn't be insert, move to next element
+            break
+    else:
+      sorted_list.append(element)
+  return sorted_list
+        
 def profile_read_in_function():
   #cProfile.run('test_func()')
   cProfile.run('read_in_pmi(FILE_NAME,True)')
