@@ -300,6 +300,48 @@ def filter_up_to_kth_largest(matrix, k):
   else:
     return matrix
 
+'''-----------------------------------------------------------------------------
+    k_nearest_neighbors(word, k, embedding, indices)
+      This function takes in a word and number of neighbors and returns that 
+      number of nearest neighbors in the given embedding. The indices are a 
+      dicitonary linking the indices of the embedding to the words in 
+      question. This function implements an insertion sort to build the list 
+      as the number of nearest neighbors will be assumed to be many fewer 
+      than the total vocabulary.
+    Input:
+      word - (string)
+        The string to search for the nearest neighbors
+      k - (positive int)
+        The number of closest neighbors to return
+      embeddings - (n x d dense matrix)
+        The given embedding of the vocabulary
+      indices - (dictionary)
+        a dictionary linking the indices of the embedding to the words they 
+        embed.
+    Returns:  
+-----------------------------------------------------------------------------'''
+def k_nearest_neighbors(word, k, embedding, indices):
+  #check for proper input
+  if k < 1:
+    raise ValueError("k must be positive")
+  i = 0
+  n = embedding.shape[0]
+  word_index = indices[word]
+  word_postition = embedding[word_index,:]
+
+  k_nearest_neighbors = []
+
+  #take top k elements exluding the current word
+  if word_index >= k:
+    while i < k:
+      
+      k_nearest_neighbors.extend(())
+
+
+  i = 0
+  while i < n:
+
+
 '''
   f.close()
   f = open(filename, "r")
