@@ -3,8 +3,8 @@ import numpy as np
 from math import log
 from scipy.sparse.linalg import svds, LinearOperator
 import matplotlib.pyplot as plt
-#import plotly.offline as py
-#import plotly.graph_objs as go
+import plotly.offline as py
+import plotly.graph_objs as go
 import process_data as pd
 from sklearn.manifold import TSNE
 
@@ -48,6 +48,7 @@ def svd_embedding(matrix, k):
 -----------------------------------------------------------------------------'''
 def plot_embeddings(embedding, words =None):
 
+  print embedding[:,0]
   trace1 = go.Scatter3d(
     x = embedding[:,0],
     y = embedding[:, 1],

@@ -25,7 +25,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  load_tSNE_word_cloud(2005)
+  load_tSNE_word_cloud(2000)
   #pmi = read_in_pmi() \
   #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
 
@@ -43,16 +43,19 @@ def main():
 def load_tSNE_word_cloud(year):
 
   #get the indices loaded in the PMI matrix
-  pattern = re.compile("[\w]*PMI_" + str(year) + ".")
-  pmi_matrix_file = filter(lambda x: re.match(pattern, x), os.listdir(os.getcwd()))
+  pattern = re.compile("[\w]*PMI_" + str(year)+ "wordIDs" + ".")
+  pmi_matrix_file = filter(lambda x: re.match(pattern, x),
+                           os.listdir(os.getcwd()))
   print pmi_matrix_file
-  _, indices = read_in_pmi(pmi_matrix_file[0],display_progress=True)
+  with open(pmi_matrix_file[0], 'rb') as handle:
+    indices = pickle.load(handle)
 
   #get all the files in svd directory which match PMI_[year]svdU_TSNE
   pattern = re.compile("[\w]*PMI_"+ str(year) + "svdU_TSNE.")
   file = filter(lambda x: re.match(pattern,x),os.listdir(os.getcwd() +
                                                          "/tSNE") )
   embedding = np.load("tSNE/"+ file[0])
+  print embedding
   w2v.plot_embeddings(embedding, indices)
 
 
