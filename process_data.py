@@ -16,7 +16,7 @@ import csv
 #Global Variables
 DATA_FILE_PATH = "/mnt/hgfs/datasets/wordEmbeddings/"
 FILE_NAME = DATA_FILE_PATH + "wordPairPMI_2016.csv"
-INDEX_WORD_FILE = DATA_FILE_PATH + "wordIDHash_min200.csv"
+INDEX_WORD_FILE = "wordIDHash_min200.csv"
 SING_VAL_EXTENSION = "SingVals.npy"
 
 UPDATE_FREQUENCY_CONSTANT = 10.0
@@ -128,7 +128,7 @@ def get_word_indices():
     _, indices = read_in_pmi(file, max_words=100)
     print "read in:" + name
 
-    with open("/wordIDS" + name +'wordIDs.pickle', 'wb') as handle:
+    with open("wordIDs/" + name +'wordIDs.pickle', 'wb') as handle:
       pickle.dump(indices, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     print "saved" + name
