@@ -204,7 +204,7 @@ def grammian(A):
         Gram_A[j,i] = entry
   return Gram_A
 
-'''
+'''-----------------------------------------------------------------------------
     build_objective_functions(word_count_matrix, k)
       This function takes in a n x m matrix with the scaled number of times a 
       word appears within the context c (#(w,c)) and returns a lambda 
@@ -228,58 +228,29 @@ def grammian(A):
         \sum_{(w,c) \in D} (log(softmax(v_c,v_w)) - k 
       gradient - (lambda func)
         an anonymous function which has the gradient of the 
-'''
+-----------------------------------------------------------------------------'''
 def build_loss_function(word_count_matrix, word_count, k):
   print TODO
-
 
 
 def tensorflow_funcs():
   d = 100
   n = 1000
+  lambda_1 = tf.constant(1,name="lambda_1")
+  lambda_2 = tf.constant(1,name="lambda_2")
   U = tf.get_variable("U", np.random.rand(n,d))
   V = tf.get_variable("V", np.random.rand(n,d))
 
+  PMI = tf.placeholder(tf.float64,[n,n],"PMI")
+  tf.sub
+  svd_term = tf.norm(tf.subtract(PMI,tf.matmul(U,V,transpose_b=True)),
+                  ord='fro')
+  fro_1 = tf.multiply(lambda_1, tf.norm(U,ord='fro'))
+  fro_2 = tf.multiply(lambda_2, tf.norm(V,ord='fro'))
+  loss = tf.add(tf.add(svd_term,fro_1), fro_2)
 
-'''
-def theano_code():
-  x = t.shared(np.ones(2),'x')
-  y = t.shared(np.ones(2), 'y')
-
-  matrix = np.array([[1,2],[3,4]])
-
-  x_1, x_2 = T.dvectors('x_1','x_2')
-  A = T.dmatrix('A')
-  qf = T.dot(x,T.dot(A,y))
-  sigma = 1 / (1 + T.exp(-y))
-  logistic = t.function([y],sigma)
-
-  print downhill.minimize(qf, matrix,inputs=A)
-
-
-def downhill_example():
-
-#  THEANO_FLAGS = None
-  m = t.shared(np.ones((1, ), dtype=np.float64), name='m')
-  b = t.shared(np.zeros((1, ), dtype=np.float64), name='b')
-
-  x = T.vector('x')
-  y = T.vector('y')
-
-  loss = T.sqr(m * x + b - y).sum()
-  sizes = np.array([1200,2013,8129,2431,2211])
-  prices = np.array([103020, 203310, 3922013, 224321, 449020])
-
-  downhill.adaptive.ADAGRAD(loss, params=[sizes,prices],inputs=[x,y])
-  #downhill.minimize(loss,[sizes, prices],inputs = [x,y])
-
-  print m, b
-'''
-
-#minimize a quadratic form
-
-
-#def word2vec_loss_func(pmi):
+  optimizer = tf.train.GradientDescentOptimizer(.01)
+  train = optimizer.minimize(loss)
 
 
 

@@ -131,7 +131,7 @@ def get_word_indices():
     name, extension = file.split('.')
     print "starting: " + name
 
-    _, indices = read_in_pmi(file, max_words=100)
+    _, indices = read_in_pmi(file)
     print "read in:" + name
 
     with open("wordIDs/" + name +'wordIDs.pickle', 'wb') as handle:
@@ -139,20 +139,8 @@ def get_word_indices():
 
     print "saved" + name
 
-def test_func():
-  f = open(FILE_NAME,"r")
-  f.next()
-
-  edges = {}
-  edge_count = 0
-  for line in f:
-     edges[edge_count] = line.split(',')
-     edge_count += 1
-
-  f.close()
-
 '''-----------------------------------------------------------------------------
-    read_in_pmi(filename, display_progress)
+    read_in_pmi(filename, returned_scaled_count, max_words, display_progress)
       This function takes in a filename and returns a pmi matrix stored in 
       the location. The file is assumed to be formatted as 
         line ->  word_index, context_index, pmi_value
@@ -336,9 +324,11 @@ def test_word_embedding():
     indices = pickle.load(handle)
   #flip the indices
   indices = {value: key for key, value in indices.iteritems()}
+  for item in indices.iteritems():
+    print item
   get_k = True
   while get_k:
-    k = int(raw_input("How many nearest neighbors do you want"))
+    k = int(raw_input("How many nearest neighbors do you want? "))
     if k < 0 or k > n:
       print "invalid choice of k= {}, must be postive and less than {}".format(k,n)
     else:
@@ -361,9 +351,6 @@ def test_word_embedding():
       for neighbor in neighbors:
         print neighbor
 
-      
-
-  
 '''-----------------------------------------------------------------------------
     k_nearest_neighbors(word, k, embedding, indices)
       This function takes in a word and number of neighbors and returns that 
@@ -382,7 +369,9 @@ def test_word_embedding():
       indices - (dictionary)
         a dictionary linking the indices of the embedding to the words they 
         embed. Here the keys are the words and the indices are the values.
-    Returns:  
+    Returns: 
+      list of pairs where the first element is the word, and the second 
+      element is the 2 norm distance between the two words in the embedding.
 -----------------------------------------------------------------------------'''
 def k_nearest_neighbors(word, k, embedding, indices):
   #check for proper input
@@ -391,15 +380,17 @@ def k_nearest_neighbors(word, k, embedding, indices):
   i = 0
   n = embedding.shape[0]
   word_index = indices[word]
-  word_postition = embedding[word_index,:]
+  word_position = embedding[word_index,:]
 
   #invert the dictionary
   indices = {value:key for key, value in indices.iteritems()}
 
-  to_sort = map(lambda x: (indices[x],embedding[x,:]),range(n))
+  to_sort = map(lambda x: (indices[x],embedding[x,:]),
+                filter(lambda x: x != word_index,range(n)))
   comes_before = lambda x,y: np.linalg.norm(x[1] - word_position) < \
                              np.linalg.norm(y[1] - word_position)   
-  return partial_insertion_sort(to_sort,comes_before,k)
+  results = partial_insertion_sort(to_sort,comes_before,k)
+  return map(lambda x: (x[0],np.linalg.norm(x[1] - word_position)),results)
 
 '''-----------------------------------------------------------------------------
     partial_insertion_sort(list,insert_before,k)
