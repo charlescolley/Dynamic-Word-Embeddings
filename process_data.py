@@ -118,7 +118,7 @@ def sequential_svd_tSNE():
 def get_word_indices():
   cwd = os.getcwd()
 
-  # check if places for svd components and tsne exist
+  # check if places for wordIDs exist
   path = os.path.join(cwd, 'wordIDs')
   if not os.path.exists(path):
     os.makedirs(path)
@@ -292,6 +292,70 @@ def filter_up_to_kth_largest(matrix, k):
     return matrix
 
 '''-----------------------------------------------------------------------------
+    word_embedding_arithmetic()
+      This function loads in a given word2vec embedding and will allow you to 
+    use addition and subtraction to test the embedding 
+        (i.e. king + woman - man = queen). 
+    The function takes in the words from the user and findest the k closest 
+    neighbors to final word computed. 
+    Input:
+      embedding (n x d matrix)
+        The embedding to compute the arithmetic with. 
+      indices (dictionary)
+        The dictionary linking the words to their index in the embedding 
+        matrix. words are keys, indices are the values. 
+      k (int)
+        The number of nearest neighbors to return. 
+    Note: 
+      Currently only supports addition and subtraction
+-----------------------------------------------------------------------------'''
+def word_embedding_arithmetic(embedding, indices, k):
+  get_equation = True
+  while get_equation:
+    equation = raw_input("input embedding arithmetic \n" +
+                         "embedding must be of the form \"word_1 {+/-} " +
+                         "word_2 {+/-} ... {+/-} word_n\"\n" +
+                         "type __quit__ to exit \n"
+                         )
+    if equation == "__quit__":
+      get_equation = False
+    else:
+      words = re.findall("[\w]+",equation)
+      operations = filter(lambda x: x != ' ',re.findall("[\W]", equation))
+      print "words", words
+      print "operations:", operations
+      #check for valid words
+      invalid_words = filter(lambda x: x not in indices, words)
+      print "invalid words:", invalid_words
+      invalid_operations = filter(lambda x: x != '+' and x != '-', operations)
+      print "invalid operations",invalid_operations
+      if invalid_words or invalid_operations:
+        if len(invalid_words) == 1:
+          print "{} is not a valid word".format(invalid_words[0])
+        elif len(invalid_words) > 1:
+          for word in invalid_words:
+             print word
+          print "are not valid words"
+        if len(invalid_operations) == 1:
+          print "{} is not a valid operation"
+        elif len(invalid_operations) > 1:
+          for operation in invalid_operations:
+             print operation
+          print "are not valid operations"
+        print "please retype equation"
+      else:
+        list = zip(operations,map(lambda x: embedding[indices[x],:],words[1:]))
+        print list
+        reduce_embedding = lambda y,x: x[1] + y if x[0] == '+' else y - x[1]
+        final_location = reduce(reduce_embedding,list,embedding[indices[words[0]],:])
+        neighbors = k_nearest_neighbors(final_location, k, embedding, indices,
+                                        use_embedding=True)
+        print "closest words were"
+        for neighbor in neighbors:
+          print neighbor
+
+
+'''-----------------------------------------------------------------------------
     test_word_embedding()
       This function will load in a tSNE embedding and will query the user for 
     words in the embedding and will report the k closest neighbors to that word
@@ -300,11 +364,30 @@ def filter_up_to_kth_largest(matrix, k):
       To be run in the main folder with all the PMI matrices.
 -----------------------------------------------------------------------------'''
 def test_word_embedding():
+  get_type = True
+  while get_type:
+    type = raw_input("Which embedding do you want to load?:\n"
+                     +"tSNE,svdU, svdVt\n")
+    if type == "tSNE":
+      subfolder = "/tSNE/"
+      postfix = "svdU_TSNE."
+      get_type = False
+    elif type == 'svdU':
+      subfolder = "svd/"
+      postfix = "svdU."
+      get_type = False
+    elif type == 'svdVt':
+      subfolder = "svd/"
+      postfix = "svdVt."
+      get_type = False
+    else:
+      print "invalid embedding choice"
+
   get_year = True
   while get_year:
     year = raw_input("Which year do you want to load?:")
-    pattern = re.compile("[\w]*PMI_"+ year + "svdU_TSNE.")
-    files = os.listdir(os.getcwd() + "/tSNE")
+    pattern = re.compile("[\w]*PMI_" + year + postfix)
+    files = os.listdir(os.getcwd() + '/' + subfolder)
     file = filter(lambda x: re.match(pattern,x),files )
     if not file:
       print "year not found, please choose from the available year"
@@ -314,7 +397,7 @@ def test_word_embedding():
       get_year = False
       
   #load in tSNE file
-  embedding = np.load("tSNE/" + file[0])
+  embedding = np.load(subfolder + file[0])
   n = embedding.shape[0]
   #load indices
   pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
@@ -324,8 +407,6 @@ def test_word_embedding():
     indices = pickle.load(handle)
   #flip the indices
   indices = {value: key for key, value in indices.iteritems()}
-  for item in indices.iteritems():
-    print item
   get_k = True
   while get_k:
     k = int(raw_input("How many nearest neighbors do you want? "))
@@ -333,7 +414,24 @@ def test_word_embedding():
       print "invalid choice of k= {}, must be postive and less than {}".format(k,n)
     else:
       get_k = False
-    
+
+  get_method = True
+  while get_method:
+    method = raw_input("which routine do you want to run?\n"+
+                       "type \"k neighbors\" for nearest neighbors \n" +
+                       "type \"arithmetic\" for embedding arithmetic \n")
+    if method == "k neighbors":
+      query_word_neighbors(embedding,indices,k)
+      get_method = False
+    elif method == "arithmetic":
+      word_embedding_arithmetic(embedding, indices, k)
+      get_method = False
+    else:
+      print "invalid selection \n"
+
+
+
+def query_word_neighbors(embedding, indices, k):
   get_word = True
   while get_word:
     word = raw_input("Which word do you want to search for? \n" + \
@@ -360,7 +458,7 @@ def test_word_embedding():
       as the number of nearest neighbors will be assumed to be many fewer 
       than the total vocabulary.
     Input:
-      word - (string)
+      word - (string/ d- dimensional array)
         The string to search for the nearest neighbors
       k - (positive int)
         The number of closest neighbors to return
@@ -369,23 +467,32 @@ def test_word_embedding():
       indices - (dictionary)
         a dictionary linking the indices of the embedding to the words they 
         embed. Here the keys are the words and the indices are the values.
+      use_embedding (optional bool)
+        a boolean indicating whether or not the word passed in is a string 
+        literal or a d - dimensional array representing a position in the 
+        embedding. 
     Returns: 
       list of pairs where the first element is the word, and the second 
       element is the 2 norm distance between the two words in the embedding.
 -----------------------------------------------------------------------------'''
-def k_nearest_neighbors(word, k, embedding, indices):
+def k_nearest_neighbors(word, k, embedding, indices, use_embedding=False):
   #check for proper input
   if k < 1:
     raise ValueError("k must be positive")
   i = 0
   n = embedding.shape[0]
-  word_index = indices[word]
-  word_position = embedding[word_index,:]
+
+  if use_embedding:
+    word_position = word
+  else:
+    word_index = indices[word]
+    word_position = embedding[word_index,:]
 
   #invert the dictionary
   indices = {value:key for key, value in indices.iteritems()}
 
   to_sort = map(lambda x: (indices[x],embedding[x,:]),
+                range(n) if use_embedding else
                 filter(lambda x: x != word_index,range(n)))
   comes_before = lambda x,y: np.linalg.norm(x[1] - word_position) < \
                              np.linalg.norm(y[1] - word_position)   

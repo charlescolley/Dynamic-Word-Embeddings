@@ -81,6 +81,7 @@ def plot_embeddings(embedding, words =None):
   py.plot(fig,filename='embedding.html')
 
 
+
 '''-----------------------------------------------------------------------------
     mat_vec(matrix, vector)
        This function produces an anonymous function to be used as a linear 
@@ -172,7 +173,6 @@ def svd_grad_U(P, U, V, lambda_1, lambda_2):
     for i in range(n):
       P[i,i] -= lambda_2
   return PV + UVTV
-
 
 '''-----------------------------------------------------------------------------
     grammian(A):
