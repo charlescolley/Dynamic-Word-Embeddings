@@ -10,7 +10,7 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  tensorflow_funcs()
+  print "blah"
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -76,8 +76,6 @@ def plot_embeddings(embedding, words =None):
   )
   fig = go.Figure(data=data,layout = layout)
   py.plot(fig,filename='embedding.html')
-
-
 
 '''-----------------------------------------------------------------------------
     mat_vec(matrix, vector)
@@ -229,31 +227,34 @@ def grammian(A):
 def build_loss_function(word_count_matrix, word_count, k):
   print "TODO"
 
-
 '''-----------------------------------------------------------------------------
     tensorflow_embedding(P, lambda1, lambda2, d)
       This function uses the tensorflow library in order to compute an embedding
       for the words present in the PMI matrix passed in. 
     Inputs:
       P - (n x n sparse matrix)
-        The PMI matrix the embedding will be learned from
+        The PMI matrix the embedding will be learned from.
       lambda1 - (float)
         the regularization constant multiplied to the frobenius norm of the U 
-        matrix embedding
+        matrix embedding.
       lambda2 - (float)
         the regularization constant multiplied to the frobenius norm of the V
-        matrix embedding
+        matrix embedding.
       d - (int)
-        the dimensional embedding to be learned
+        the dimensional embedding to be learned.
       iterations - (int)
         the number of iterations to train on.
+      display_progress - (optional bool)
+        updates the user in increments of 10% of how much of the training has 
+        completed.
     Returns:
       U_res - (n x d dense matrix)
         the d dimensional word emebedding 
       V_res - (n x d dense matrix)
         the d dimensional context embedding
 -----------------------------------------------------------------------------'''
-def tensorflow_embedding(P,lambda1, lambda2, d, iterations):
+def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
+                         display_progress = False):
   n = P.shape[0]
   sess = tf.Session()
   lambda_1 = tf.constant(lambda1,name="lambda_1")
@@ -268,14 +269,17 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations):
   fro_2 = tf.multiply(lambda_2, tf.norm(V))
   loss = tf.add(tf.add(svd_term,fro_1), fro_2)
 
-  optimizer = tf.train.GradientDescentOptimizer(.01)
+  optimizer = tf.train.AdagradOptimizer(.01)
   train = optimizer.minimize(loss)
   init = tf.global_variables_initializer()
   sess.run(init)
 
   for i in range(iterations):
+    if display_progress:
+      if (i % .1*iterations) == 0:
+        print "{}% training progress".format((float(i)/iterations) * 100)
+
     sess.run(train, {PMI: P})
-  #U_res = sess.run(U)
   U_res,V_res = sess.run([U,V])
   return U_res, V_res
 

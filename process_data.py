@@ -61,7 +61,6 @@ def load_tSNE_word_cloud(year):
   print embedding
   w2v.plot_embeddings(embedding, indices)
 
-
 '''-----------------------------------------------------------------------------
     sequetial_svd_tSNE()
       This funciton will process all of the truncated svd factorizations and 
@@ -107,7 +106,6 @@ def sequential_svd_tSNE():
     np.save("tSNE/" + name + "svdU_TSNE.npy", embedding)
 
     print "computed and saved matrix " + name + "TSNE"
-
 
 '''-----------------------------------------------------------------------------
     get_word_indices()
@@ -354,6 +352,37 @@ def word_embedding_arithmetic(embedding, indices, k):
         for neighbor in neighbors:
           print neighbor
 
+def test_tensorflow():
+  year = 2005
+  iterations = 1000
+  lambda1 = 1.0
+  lambda2 = 1.0
+  d = 50
+  cwd = os.getcwd()
+
+  # check if places for tf_embeddings exist
+  path = os.path.join(cwd, 'tf_embedding')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+  files = os.listdir(os.getcwd())
+  file = filter(lambda x: re.match(pattern, x), files)
+  name, _ = file[0].split('.')
+
+  PMI, _ = read_in_pmi(file, display_progress=True)
+  U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations)
+
+  #save the embeddings
+  np.save("tf_embedding/" + name + "tfU.npy", U_res)
+  np.save("tf_embedding/" + name + "tfV.npy", V_res)
+  print "saved embeddings"
+  #save the parameters
+  parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
+                'lambda2':lambda2, 'dimensions':d}
+  with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
+    pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
+  print "saved parameters"
 
 #todo: REMOVE WORDS IN INITIAL LIST FROM RESULTS
 '''-----------------------------------------------------------------------------
