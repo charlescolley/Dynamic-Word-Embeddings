@@ -367,11 +367,12 @@ def test_tensorflow():
 
   pattern = re.compile("[\w]*PMI_" + str(year) + ".")
   files = os.listdir(os.getcwd())
-  file = filter(lambda x: re.match(pattern, x), files)
-  name, _ = file[0].split('.')
+  file = filter(lambda x: re.match(pattern, x), files)[0]
+  name, _ = file.split('.')
 
   PMI, _ = read_in_pmi(file, display_progress=True)
-  U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations)
+  U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
+                                          display_progress=True)
 
   #save the embeddings
   np.save("tf_embedding/" + name + "tfU.npy", U_res)

@@ -263,7 +263,7 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
   V = tf.get_variable("V",initializer=tf.random_uniform([n,d], -0.1, 0.1))
 
   PMI = tf.placeholder(tf.float32,[n,n],"PMI")
-  svd_term = tf.norm(tf.subtract(PMI,tf.matmul(U,V,transpose_b=True)))
+  svd_term = tf.norm(PMI - tf.matmul(U,V,transpose_b=True))
 
   fro_1 = tf.multiply(lambda_1, tf.norm(U))
   fro_2 = tf.multiply(lambda_2, tf.norm(V))
@@ -279,7 +279,7 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
       if (i % .1*iterations) == 0:
         print "{}% training progress".format((float(i)/iterations) * 100)
 
-    sess.run(train, {PMI: P})
+    sess.run(train, {PMI: P.todense()})
   U_res,V_res = sess.run([U,V])
   return U_res, V_res
 
