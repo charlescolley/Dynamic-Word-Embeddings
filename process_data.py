@@ -355,6 +355,7 @@ def word_embedding_arithmetic(embedding, indices, k):
           print neighbor
 
 
+#todo: REMOVE WORDS IN INITIAL LIST FROM RESULTS
 '''-----------------------------------------------------------------------------
     test_word_embedding()
       This function will load in a tSNE embedding and will query the user for 
@@ -415,20 +416,7 @@ def test_word_embedding():
     else:
       get_k = False
 
-  get_method = True
-  while get_method:
-    method = raw_input("which routine do you want to run?\n"+
-                       "type \"k neighbors\" for nearest neighbors \n" +
-                       "type \"arithmetic\" for embedding arithmetic \n")
-    if method == "k neighbors":
-      query_word_neighbors(embedding,indices,k)
-      get_method = False
-    elif method == "arithmetic":
-      word_embedding_arithmetic(embedding, indices, k)
-      get_method = False
-    else:
-      print "invalid selection \n"
-
+  word_embedding_arithmetic(embedding, indices, k)
 
 
 def query_word_neighbors(embedding, indices, k):
@@ -446,8 +434,11 @@ def query_word_neighbors(embedding, indices, k):
       print "{} not found, please enter another word".format(word)
     else:
       neighbors = k_nearest_neighbors(word, k, embedding, indices)
+
+      #use max_string length to format
+      max_str_len = max(map(lambda x: len(x[0]), neighbors.__iter__()))
       for neighbor in neighbors:
-        print neighbor
+        print neighbor[0].rjust(max_str_len), neighbor[1]
 
 '''-----------------------------------------------------------------------------
     k_nearest_neighbors(word, k, embedding, indices)
@@ -457,6 +448,7 @@ def query_word_neighbors(embedding, indices, k):
       question. This function implements an insertion sort to build the list 
       as the number of nearest neighbors will be assumed to be many fewer 
       than the total vocabulary.
+    @Params 
     Input:
       word - (string/ d- dimensional array)
         The string to search for the nearest neighbors

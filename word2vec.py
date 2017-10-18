@@ -3,17 +3,14 @@ import numpy as np
 from math import log
 from scipy.sparse.linalg import svds, LinearOperator
 import matplotlib.pyplot as plt
+from sklearn.decomposition import TruncatedSVD
 #import plotly.offline as py
 #import plotly.graph_objs as go
 import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  pmi, indices = pd.read_in_pmi(max_words=5000)
-  U, S, Vt = svds(pmi, k=50)
-  embedding = TSNE(n_components=3).fit_transform(U)
-  plot_embeddings(embedding, indices)
-
+  tensorflow_funcs()
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -230,30 +227,57 @@ def grammian(A):
         an anonymous function which has the gradient of the 
 -----------------------------------------------------------------------------'''
 def build_loss_function(word_count_matrix, word_count, k):
-  print TODO
+  print "TODO"
 
 
-def tensorflow_funcs():
-  d = 100
-  n = 1000
-  lambda_1 = tf.constant(1,name="lambda_1")
-  lambda_2 = tf.constant(1,name="lambda_2")
-  U = tf.get_variable("U", np.random.rand(n,d))
-  V = tf.get_variable("V", np.random.rand(n,d))
+'''-----------------------------------------------------------------------------
+    tensorflow_embedding(P, lambda1, lambda2, d)
+      This function uses the tensorflow library in order to compute an embedding
+      for the words present in the PMI matrix passed in. 
+    Inputs:
+      P - (n x n sparse matrix)
+        The PMI matrix the embedding will be learned from
+      lambda1 - (float)
+        the regularization constant multiplied to the frobenius norm of the U 
+        matrix embedding
+      lambda2 - (float)
+        the regularization constant multiplied to the frobenius norm of the V
+        matrix embedding
+      d - (int)
+        the dimensional embedding to be learned
+      iterations - (int)
+        the number of iterations to train on.
+    Returns:
+      U_res - (n x d dense matrix)
+        the d dimensional word emebedding 
+      V_res - (n x d dense matrix)
+        the d dimensional context embedding
+-----------------------------------------------------------------------------'''
+def tensorflow_embedding(P,lambda1, lambda2, d, iterations):
+  n = P.shape[0]
+  sess = tf.Session()
+  lambda_1 = tf.constant(lambda1,name="lambda_1")
+  lambda_2 = tf.constant(lambda2,name="lambda_2")
+  U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
+  V = tf.get_variable("V",initializer=tf.random_uniform([n,d], -0.1, 0.1))
 
-  PMI = tf.placeholder(tf.float64,[n,n],"PMI")
-  tf.sub
-  svd_term = tf.norm(tf.subtract(PMI,tf.matmul(U,V,transpose_b=True)),
-                  ord='fro')
-  fro_1 = tf.multiply(lambda_1, tf.norm(U,ord='fro'))
-  fro_2 = tf.multiply(lambda_2, tf.norm(V,ord='fro'))
+  PMI = tf.placeholder(tf.float32,[n,n],"PMI")
+  svd_term = tf.norm(tf.subtract(PMI,tf.matmul(U,V,transpose_b=True)))
+
+  fro_1 = tf.multiply(lambda_1, tf.norm(U))
+  fro_2 = tf.multiply(lambda_2, tf.norm(V))
   loss = tf.add(tf.add(svd_term,fro_1), fro_2)
 
   optimizer = tf.train.GradientDescentOptimizer(.01)
   train = optimizer.minimize(loss)
+  init = tf.global_variables_initializer()
+  sess.run(init)
 
-
-
+  for i in range(iterations):
+    sess.run(train, {PMI: P})
+  #U_res = sess.run(U)
+  U_res,V_res = sess.run([U,V])
+  return U_res, V_res
 
 if __name__ == "__main__":
     main()
