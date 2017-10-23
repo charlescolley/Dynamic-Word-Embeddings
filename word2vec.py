@@ -262,11 +262,11 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
   U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
   V = tf.get_variable("V",initializer=tf.random_uniform([n,d], -0.1, 0.1))
 
-  PMI = tf.placeholder(tf.float32,[n,n],"PMI")
-  svd_term = tf.norm(PMI - tf.matmul(U,V,transpose_b=True))
-
+  PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
+  svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * U,V,transpose_b=True)))
   fro_1 = tf.multiply(lambda_1, tf.norm(U))
   fro_2 = tf.multiply(lambda_2, tf.norm(V))
+
   loss = tf.add(tf.add(svd_term,fro_1), fro_2)
 
   optimizer = tf.train.AdagradOptimizer(.01)
@@ -276,10 +276,10 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
 
   for i in range(iterations):
     if display_progress:
-      if (i % .1*iterations) == 0:
+      if (i % (.1*iterations)) == 0:
         print "{}% training progress".format((float(i)/iterations) * 100)
 
-    sess.run(train, {PMI: P.todense()})
+    sess.run(train)
   U_res,V_res = sess.run([U,V])
   return U_res, V_res
 

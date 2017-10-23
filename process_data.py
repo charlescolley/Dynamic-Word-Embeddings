@@ -1,4 +1,5 @@
 import scipy.sparse as sp
+from time import clock
 from sys import argv
 import matplotlib.pylab as plt
 import numpy as np
@@ -353,7 +354,7 @@ def word_embedding_arithmetic(embedding, indices, k):
           print neighbor
 
 def test_tensorflow():
-  year = 2005
+  year = 2000
   iterations = 1000
   lambda1 = 1.0
   lambda2 = 1.0
@@ -370,9 +371,12 @@ def test_tensorflow():
   file = filter(lambda x: re.match(pattern, x), files)[0]
   name, _ = file.split('.')
 
-  PMI, _ = read_in_pmi(file, display_progress=True)
+#  PMI, _ = read_in_pmi(file, display_progress=True)
+  PMI = sp.random(100,100,format='dok')
+  embedding_algo_start_time = clock()
   U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
                                           display_progress=True)
+  run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
   np.save("tf_embedding/" + name + "tfU.npy", U_res)
@@ -380,7 +384,7 @@ def test_tensorflow():
   print "saved embeddings"
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
-                'lambda2':lambda2, 'dimensions':d}
+                'lambda2':lambda2, 'dimensions':d, 'run_time':run_time}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
