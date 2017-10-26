@@ -355,7 +355,7 @@ def word_embedding_arithmetic(embedding, indices, k):
 def test_tensorflow():
   year = 2000
   iterations = 1000
-  lambda1 = 1.0
+  lambda1 = -1.0
   lambda2 = 1.0
   d = 50
   cwd = os.getcwd()
@@ -370,13 +370,17 @@ def test_tensorflow():
   file = filter(lambda x: re.match(pattern, x), files)[0]
   name, _ = file.split('.')
 
-  PMI, _ = read_in_pmi(file, display_progress=True)
-#  PMI = sp.random(100,100,format='dok')
+#  PMI, _ = read_in_pmi(file, display_progress=True)
+  PMI = sp.random(100,100,format='dok')
   embedding_algo_start_time = clock()
   U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
                                           display_progress=True)
   run_time = clock() - embedding_algo_start_time
 
+  name = name + "_iterations_" + str(iterations) + \
+               "_lambda1_" + str(lambda1) + \
+               "_lambda2_" + str(lambda2) +  \
+               "_dimensions_" + str(d) +  "_"
   #save the embeddings
   np.save("tf_embedding/" + name + "tfU.npy", U_res)
   np.save("tf_embedding/" + name + "tfV.npy", V_res)
