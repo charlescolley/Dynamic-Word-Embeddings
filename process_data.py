@@ -344,7 +344,6 @@ def word_embedding_arithmetic(embedding, indices, k):
         print "please retype equation"
       else:
         list = zip(operations,map(lambda x: embedding[indices[x],:],words[1:]))
-        print list
         reduce_embedding = lambda y,x: x[1] + y if x[0] == '+' else y - x[1]
         final_location = reduce(reduce_embedding,list,embedding[indices[words[0]],:])
         neighbors = k_nearest_neighbors(final_location, k, embedding, indices,
@@ -371,8 +370,8 @@ def test_tensorflow():
   file = filter(lambda x: re.match(pattern, x), files)[0]
   name, _ = file.split('.')
 
-#  PMI, _ = read_in_pmi(file, display_progress=True)
-  PMI = sp.random(100,100,format='dok')
+  PMI, _ = read_in_pmi(file, display_progress=True)
+#  PMI = sp.random(100,100,format='dok')
   embedding_algo_start_time = clock()
   U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
                                           display_progress=True)
@@ -402,7 +401,7 @@ def test_word_embedding():
   get_type = True
   while get_type:
     type = raw_input("Which embedding do you want to load?:\n"
-                     +"tSNE,svdU, svdVt\n")
+                     +"tSNE,svdU, svdVt, tfU, tfV\n")
     if type == "tSNE":
       subfolder = "/tSNE/"
       postfix = "svdU_TSNE."
@@ -414,6 +413,14 @@ def test_word_embedding():
     elif type == 'svdVt':
       subfolder = "svd/"
       postfix = "svdVt."
+      get_type = False
+    elif type == 'tfU':
+      subfolder = "tf_embedding/"
+      postfix = "tfU."
+      get_type = False
+    elif type == 'tfV':
+      subfolder = "tf_embedding/"
+      postfix = "tfV."
       get_type = False
     else:
       print "invalid embedding choice"
@@ -433,6 +440,7 @@ def test_word_embedding():
       
   #load in tSNE file
   embedding = np.load(subfolder + file[0])
+  normalize(embedding)
   n = embedding.shape[0]
   #load indices
   pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
@@ -452,6 +460,29 @@ def test_word_embedding():
 
   word_embedding_arithmetic(embedding, indices, k)
 
+'''-----------------------------------------------------------------------------
+    normalize(embedding,mode)
+      This function takes in an n x d numpy array and normalizes it based off of
+      the mode that is passed into. The changes are all made the embedding 
+      passed in, rather than making a new matrix and returning it. 
+    Input:
+      embedding (n x d numpy array)
+        the embedding to be normalized
+      mode - (int)
+        the mode to normalize with respect to. Default is 1, indicating 
+        normalize by the rows. 
+    Note:
+      This is currently implemented for a matrix input, but it may be useful 
+      to expand the normalization to tensors of higher order. 
+-----------------------------------------------------------------------------'''
+def normalize(embedding,mode=1):
+  size = embedding.shape[mode-1]
+  if mode == 1:
+    for i in range(size):
+      embedding[i,:] = embedding[i,:]/np.linalg.norm(embedding[i,:])
+  else:
+    for i in range(size):
+      embedding[:,i] = embedding[:, i] / np.linalg.norm(embedding[:, i])
 
 def query_word_neighbors(embedding, indices, k):
   get_word = True
