@@ -1,0 +1,53 @@
+\documentclass{report}
+
+
+\begin{document}
+\section{Action List}
+	\textbf{last updated:} 10/26/2017
+	\subsection{Code}
+		Currently the algorithms are being implemented with tensorflows python api. This will offer us the fastest performance and the software development time. Currently the algorithms are all being run on Shuchin's dell37 server, but I would like to run the software using slurm's scripting language to get full use of the cluster. 
+		\subsubsection{2 - tucker}
+			\begin{enumerate}
+				\item trust region methods for choice of regularization constants (log scale search/ armijo's method )
+				\item Add in core matrix B into the factorizations
+				\begin{enumerate}
+					\item add in B symmetry encouraging objective functions
+					\item project into the eigenspaces associated with positive eigenvalues of B
+					\item using projection methods to minimize von-neumann entropy. 
+				\end{enumerate}
+			\end{enumerate}
+		\subsubsection{t-svd}
+			\begin{enumerate}
+				\item implement t-svd in tensorflow, requires batch processing to compute the fft for each tube.  
+			\end{enumerate}
+		\subsubsection{Interface software}
+		  \begin{enumerate}
+		  	\item Bug in the 3D-scatter plots, plotly won't plot large 3D- scatter.
+		  	\item remove words in input sentence from result of k-nearest words
+		  	\item properly normalize the rows of the SVD rows 
+		  \end{enumerate}
+	\subsection{Analysis}
+		How can we properly measure how successful a given word embedding is for a given text corpus. 
+		\begin{enumerate}
+			\item Find metrics for evaluating the word embeddings
+			\begin{enumerate}
+				\item interpolate between missing words?
+				\item Jaccard Index to measure similarity between k - nearest neighbors in svd embedding (could use minHash for speed if needed).
+			\end{enumerate}
+		\end{enumerate}
+	\subsection{Open questions}
+	\begin{enumerate}
+		\item does aggregating accross PMI matrices perform better than shared PMI slices? How do they differ? 
+		content...
+	\end{enumerate}
+	\subsection{Applications}
+	\begin{enumerate}
+		\item Could we apply these methods to analysis of messages shared between peers for an individual to provide a personal embedding? My thoughts are that if we could provide a dynamic word embedding for a person, then it could perhaps be used to measure whether or not the individual needed some sort of intervention if they were suffering from a mental health condition. 
+		\item Could we apply these embeddings to a large text corpus and then plot the path of a vector moving through the text corpus (reading it) and would the path reveal any information about the structure of the document? 
+		\begin{enumerate}
+			\item Would have to be more careful to decide on how word representations are combined to represent the state of the path at the $ t $th word.
+			\item end-to-end neural nets may be useful to help make these decisions. 
+		\end{enumerate}
+	\end{enumerate}
+    
+\end{document}
