@@ -422,11 +422,11 @@ def test_word_embedding():
       get_type = False
     elif type == 'tfU':
       subfolder = "tf_embedding/"
-      postfix = "tfU."
+      postfix = ".tfU."
       get_type = False
     elif type == 'tfV':
       subfolder = "tf_embedding/"
-      postfix = "tfV."
+      postfix = ".tfV."
       get_type = False
     else:
       print "invalid embedding choice"
@@ -437,15 +437,27 @@ def test_word_embedding():
     pattern = re.compile("[\w]*PMI_" + year + postfix)
     files = os.listdir(os.getcwd() + '/' + subfolder)
     file = filter(lambda x: re.match(pattern,x),files )
+    file_count = len(file)
     if not file:
       print "year not found, please choose from the available year"
       for f in files:
         print f
+    elif file_count > 1:
+      print "multiple files found please type in index to choose file"
+      for i in range(file_count):
+        print i, ":", file[i]
+      index = int(raw_input("select index 0 - "+str(file_count)))
+      if index > file_count or index < 0:
+        print "invalid selection"
+      else:
+        file = file[index]
+        get_year = False
     else:
+      file = file[0]
       get_year = False
       
   #load in tSNE file
-  embedding = np.load(subfolder + file[0])
+  embedding = np.load(subfolder + file)
   normalize(embedding)
   n = embedding.shape[0]
   #load indices
