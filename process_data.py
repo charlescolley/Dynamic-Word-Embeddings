@@ -373,7 +373,7 @@ def test_tensorflow():
   PMI, _ = read_in_pmi(file, display_progress=True)
  # PMI = sp.random(100,100,format='dok')
   embedding_algo_start_time = clock()
-  U_res, B, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
+  U_res, B = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
                                           display_progress=True)
   run_time = clock() - embedding_algo_start_time
 
@@ -381,9 +381,9 @@ def test_tensorflow():
                "_lambda1_" + str(lambda1) + \
                "_lambda2_" + str(lambda2) +  \
                "_dimensions_" + str(d) +  "_"
+
   #save the embeddings
   np.save("tf_embedding/" + name + "tfU.npy", U_res)
-  np.save("tf_embedding/" + name + "tfV.npy", V_res)
   np.save("tf_embedding/" + name + "tfB.npy", B)
 
   print "saved embeddings"
@@ -422,11 +422,11 @@ def test_word_embedding():
       get_type = False
     elif type == 'tfU':
       subfolder = "tf_embedding/"
-      postfix = ".tfU."
+      postfix = ".+tfU."
       get_type = False
     elif type == 'tfV':
       subfolder = "tf_embedding/"
-      postfix = ".tfV."
+      postfix = ".+tfV."
       get_type = False
     else:
       print "invalid embedding choice"
@@ -446,7 +446,7 @@ def test_word_embedding():
       print "multiple files found please type in index to choose file"
       for i in range(file_count):
         print i, ":", file[i]
-      index = int(raw_input("select index 0 - "+str(file_count)))
+      index = int(raw_input("select index 0 - "+str(file_count-1) + '\n'))
       if index > file_count or index < 0:
         print "invalid selection"
       else:
@@ -458,6 +458,7 @@ def test_word_embedding():
       
   #load in tSNE file
   embedding = np.load(subfolder + file)
+
   normalize(embedding)
   n = embedding.shape[0]
   #load indices
