@@ -379,7 +379,6 @@ def test_tensorflow():
 
   name = name + "_iterations_" + str(iterations) + \
                "_lambda1_" + str(lambda1) + \
-               "_lambda2_" + str(lambda2) +  \
                "_dimensions_" + str(d) +  "_"
 
   #save the embeddings
@@ -389,7 +388,7 @@ def test_tensorflow():
   print "saved embeddings"
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
-                'lambda2':lambda2, 'dimensions':d, 'run_time':run_time}
+                'dimensions':d, 'run_time':run_time}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
