@@ -237,9 +237,6 @@ def build_loss_function(word_count_matrix, word_count, k):
       lambda1 - (float)
         the regularization constant multiplied to the frobenius norm of the U 
         matrix embedding.
-      lambda2 - (float)
-        the regularization constant multiplied to the frobenius norm of the V
-        matrix embedding.
       d - (int)
         the dimensional embedding to be learned.
       iterations - (int)
@@ -250,26 +247,23 @@ def build_loss_function(word_count_matrix, word_count, k):
     Returns:
       U_res - (n x d dense matrix)
         the d dimensional word emebedding 
-      V_res - (n x d dense matrix)
-        the d dimensional context embedding
+      B_res - (n x d dense matrix)
+        the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
-def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
-                         display_progress = False):
+def tensorflow_embedding(P, lambda1, d, iterations, display_progress = False):
   n = P.shape[0]
   sess = tf.Session()
   lambda_1 = tf.constant(lambda1,name="lambda_1")
-  lambda_2 = tf.constant(lambda2,name="lambda_2")
   U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
-  V = tf.get_variable("V",initializer=tf.random_uniform([n,d], -0.1, 0.1))
   B = tf.get_variable("B",initializer=tf.random_uniform([d,d],-0.1,0,1))
-  B = B + B.T
+  B = B + tf.transpose(B)
   PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
   svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * tf.matmul(U, B), U,\
                                                         transpose_b=True)))
   fro_1 = tf.multiply(lambda_1, tf.norm(U))
 #  fro_2 = tf.multiply(lambda_2, tf.norm(V))
 #  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
-  loss = svd_term + fro_1 #+ B_sym
+  loss = svd_term + fro_1
 
   optimizer = tf.train.AdagradOptimizer(.01)
   train = optimizer.minimize(loss)
@@ -284,8 +278,20 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
     #insert positive eigenspace projection
 
 
+
   U_res,B_res = sess.run([U,B])
   return U_res, B_res
 
+
+'''-----------------------------------------------------------------------------
+    project_onto_positive_eigenspaces(A)
+      This function takes in a tensorflow tensor and returns a tensor with 
+      the eigenspaces associated with eigenvalues <= 0 removed. 
+-----------------------------------------------------------------------------'''
+def project_onto_positive_eigenspaces(A):
+  vals, vecs = tf.Session().run(tf.self_adjoint_eig(A))
+  print vecs, vals
+
 if __name__ == "__main__":
     main()
+
