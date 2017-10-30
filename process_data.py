@@ -370,8 +370,8 @@ def test_tensorflow():
   file = filter(lambda x: re.match(pattern, x), files)[0]
   name, _ = file.split('.')
 
-#  PMI, _ = read_in_pmi(file, display_progress=True)
-  PMI = sp.random(100,100,format='dok')
+  PMI, _ = read_in_pmi(file, display_progress=True)
+#  PMI = sp.random(100,100,format='dok')
   embedding_algo_start_time = clock()
   U_res, B = w2v.tensorflow_embedding(PMI,lambda1,d,iterations, \
                                       display_progress=True)
@@ -458,7 +458,7 @@ def test_word_embedding():
   #load in tSNE file
   embedding = np.load(subfolder + file)
 
-  normalize(embedding)
+ # normalize(embedding)
   n = embedding.shape[0]
   #load indices
   pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")

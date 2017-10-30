@@ -255,8 +255,7 @@ def tensorflow_embedding(P, lambda1, d, iterations, display_progress = False):
   sess = tf.Session()
   lambda_1 = tf.constant(lambda1,name="lambda_1")
   U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
-  B = tf.get_variable("B",initializer=tf.random_uniform([d,d],-0.1,0,1))
-  B = B + tf.transpose(B)
+  B = tf.get_variable("B",initializer=tf.ones([d,d]))
   PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
   svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * tf.matmul(U, B), U,\
                                                         transpose_b=True)))
@@ -275,9 +274,7 @@ def tensorflow_embedding(P, lambda1, d, iterations, display_progress = False):
       if (i % (.1*iterations)) == 0:
         print "{}% training progress".format((float(i)/iterations) * 100)
     sess.run(train)
-    #insert positive eigenspace projection
-
-
+    tf.assign(B,value=project_onto_positive_eigenspaces(sess.run(B)))
 
   U_res,B_res = sess.run([U,B])
   return U_res, B_res
@@ -285,12 +282,14 @@ def tensorflow_embedding(P, lambda1, d, iterations, display_progress = False):
 
 '''-----------------------------------------------------------------------------
     project_onto_positive_eigenspaces(A)
-      This function takes in a tensorflow tensor and returns a tensor with 
-      the eigenspaces associated with eigenvalues <= 0 removed. 
+      This function takes in a np 2d array and returns the dense matrix with the
+      eigenspaces associated with eigenvalues < 0 removed. 
 -----------------------------------------------------------------------------'''
 def project_onto_positive_eigenspaces(A):
-  vals, vecs = tf.Session().run(tf.self_adjoint_eig(A))
-  print vecs, vals
+  vals, vecs = np.linalg.eigh(A)
+  positive_eigs = filter(lambda x: vals[x] > 0, range(A.shape[0]))
+  submatrix = vecs[np.ix_(range(A.shape[0]), positive_eigs)]
+  return np.dot(submatrix,(vals[positive_eigs]*submatrix).T)
 
 if __name__ == "__main__":
     main()
