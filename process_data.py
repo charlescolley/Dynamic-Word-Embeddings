@@ -1,5 +1,6 @@
 import scipy.sparse as sp
 from time import clock
+from math import sqrt
 from sys import argv
 import matplotlib.pylab as plt
 import numpy as np
@@ -12,6 +13,7 @@ from sklearn.manifold import TSNE
 import word2vec as w2v
 import pickle
 from functools import reduce
+import multiprocessing as mp
 import csv
 #from memory_profiler import profile
 
@@ -458,7 +460,17 @@ def test_word_embedding():
   #load in tSNE file
   embedding = np.load(subfolder + file)
 
- # normalize(embedding)
+  if type == "tfU":
+    if (raw_input("load core tensor? enter [y] to include B in embedding\n")
+        =='y'):
+      B_file = list(file) #loads the B tensor TODO: Make this more robust
+      B_file[-5] = 'B'
+      core_tensor = np.load(subfolder + "".join(B_file))
+      vals, vecs = np.linalg.eigh(core_tensor)
+      print vals
+      embedding = np.dot(embedding, map(lambda x: sqrt(x),vals) * vecs)
+
+  normalize(embedding)
   n = embedding.shape[0]
   #load indices
   pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
@@ -622,6 +634,45 @@ def partial_insertion_sort(list, insert_before, k):
 def profile_read_in_function():
   #cProfile.run('test_func()')
   cProfile.run('read_in_pmi(FILE_NAME,True)')
+
+'''-----------------------------------------------------------------------------
+    load_tensor_slices(slices)
+      This function takes in a list of slices to load into a third order 
+      tensor and returns a dictionary of the slices.This function uses a 
+      thread for each slice to improve speed by latency hiding
+    Input:
+      slices - string list
+        a list of the files to l
+-----------------------------------------------------------------------------'''
+def load_tensor_slices(slices):
+  index = 0
+  tensor_slices = {}
+  '''
+  #mp.set_start_method('fork')
+  processes = []
+  q = mp.Queue()
+  
+  for slice in slices:
+    p = mp.Process(target=process_helper,args=(index,slice,q))
+    processes.append(p)
+    p.start()
+    index += 1
+
+  for p in processes:
+    p.join()
+    slice_index, PMI = q.get()
+    tensor_slices[slice_index] = PMI
+  '''
+
+  for slice in slices:
+    tensor_slices[index],_ = read_in_pmi(slice)
+    index += 1
+  return tensor_slices
+
+def process_helper(slice_index,slice_file,queue):
+  PMI, _ = read_in_pmi(slice_file,max_words=10,display_progress=True)
+  queue.put((slice_index,PMI))
+
 
 '''-----------------------------------------------------------------------------
     read_in_word_index()

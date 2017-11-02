@@ -10,7 +10,7 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  print "blah"
+  test_function()
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -239,6 +239,8 @@ def build_loss_function(word_count_matrix, word_count, k):
         matrix embedding.
       d - (int)
         the dimensional embedding to be learned.
+      batch_size - (int)
+        a positive integer which must be great than 0, and less than n.
       iterations - (int)
         the number of iterations to train on.
       display_progress - (optional bool)
@@ -250,14 +252,17 @@ def build_loss_function(word_count_matrix, word_count, k):
       B_res - (n x d dense matrix)
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
-def tensorflow_embedding(P, lambda1, d, iterations, display_progress = False):
+def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
+                         display_progress = False):
   n = P.shape[0]
   sess = tf.Session()
   lambda_1 = tf.constant(lambda1,name="lambda_1")
   U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
   B = tf.get_variable("B",initializer=tf.ones([d,d]))
-  PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
-  svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * tf.matmul(U, B), U,\
+  PMI = tf.sparse_placeholder(tf.float32)
+#  PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
+  UB = U * B
+  svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
                                                         transpose_b=True)))
   fro_1 = tf.multiply(lambda_1, tf.norm(U))
 #  fro_2 = tf.multiply(lambda_2, tf.norm(V))
@@ -273,11 +278,41 @@ def tensorflow_embedding(P, lambda1, d, iterations, display_progress = False):
     if display_progress:
       if (i % (.1*iterations)) == 0:
         print "{}% training progress".format((float(i)/iterations) * 100)
-    sess.run(train)
-    tf.assign(B,value=project_onto_positive_eigenspaces(sess.run(B)))
+    indices = np.random.choice(xrange(n),size =batch_size,replace=False)
+    P_submatrix = P[np.ix_(xrange(P.shape),indices)]
+    sess.run(train,feed_dict={
+      PMI:tf.SparseTensorValue(indices=P_submatrix.keys(),
+                               values=P_submatrix.values(),
+                               dense_shape=[batch_size,n]),
+      U:tf.gather(U,indices)}
+    )
 
   U_res,B_res = sess.run([U,B])
   return U_res, B_res
+
+
+def test_function():
+  sess = tf.Session()
+  b = tf.get_variable("b",initializer=5*tf.ones([1,5]))
+  x = tf.get_variable("x",initializer=tf.random_uniform([1,5]))
+  loss = tf.norm(b - x)
+  optimizer = tf.train.GradientDescentOptimizer(.01)
+  train = optimizer.minimize(loss)
+  init = tf.global_variables_initializer()
+  sess.run(init)
+
+  indices = np.random.choice(range(5),size=2,replace=False)
+  mask = np.full(5,False)
+  for index in indices:
+    mask[index] = True
+  print "x before",sess.run(x)
+
+  update_these = entry_stop_gradients(tf.gather(x,indices),mask)
+  print sess.run(update_these)
+  grad = optimizer.compute_gradients(loss,update_these)
+  print sess.run(grad)
+
+
 
 
 '''-----------------------------------------------------------------------------
@@ -290,6 +325,23 @@ def project_onto_positive_eigenspaces(A):
   positive_eigs = filter(lambda x: vals[x] > 0, range(A.shape[0]))
   submatrix = vecs[np.ix_(range(A.shape[0]), positive_eigs)]
   return np.dot(submatrix,(vals[positive_eigs]*submatrix).T)
+
+
+'''-----------------------------------------------------------------------------
+   a tensorflow helper function used to only compute certain gradients. 
+   
+   source - https://github.com/tensorflow/tensorflow/issues/9162
+-----------------------------------------------------------------------------'''
+def entry_stop_gradients(target, mask):
+  mask_h = tf.logical_not(mask)
+
+  mask = tf.cast(mask, dtype=target.dtype)
+  mask_h = tf.cast(mask_h, dtype=target.dtype)
+
+  return tf.stop_gradient(mask_h * target) + mask * target
+
+
+#def t_svd()
 
 if __name__ == "__main__":
     main()
