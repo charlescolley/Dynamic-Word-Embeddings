@@ -1,5 +1,6 @@
 import scipy.sparse as sp
 from time import clock
+from math import sqrt
 from sys import argv
 import matplotlib.pylab as plt
 import numpy as np
@@ -12,6 +13,7 @@ from sklearn.manifold import TSNE
 import word2vec as w2v
 import pickle
 from functools import reduce
+import multiprocessing as mp
 import csv
 #from memory_profiler import profile
 
@@ -344,7 +346,6 @@ def word_embedding_arithmetic(embedding, indices, k):
         print "please retype equation"
       else:
         list = zip(operations,map(lambda x: embedding[indices[x],:],words[1:]))
-        print list
         reduce_embedding = lambda y,x: x[1] + y if x[0] == '+' else y - x[1]
         final_location = reduce(reduce_embedding,list,embedding[indices[words[0]],:])
         neighbors = k_nearest_neighbors(final_location, k, embedding, indices,
@@ -356,8 +357,8 @@ def word_embedding_arithmetic(embedding, indices, k):
 def test_tensorflow():
   year = 2000
   iterations = 1000
-  lambda1 = 1.0
-  lambda2 = 1.0
+  lambda1 = -1.0
+  lambda2 = -1.0
   d = 50
   cwd = os.getcwd()
 
@@ -371,20 +372,25 @@ def test_tensorflow():
   file = filter(lambda x: re.match(pattern, x), files)[0]
   name, _ = file.split('.')
 
-#  PMI, _ = read_in_pmi(file, display_progress=True)
-  PMI = sp.random(100,100,format='dok')
+  PMI, _ = read_in_pmi(file, display_progress=True)
+#  PMI = sp.random(100,100,format='dok')
   embedding_algo_start_time = clock()
-  U_res, V_res = w2v.tensorflow_embedding(PMI,lambda1,lambda2,d,iterations,
-                                          display_progress=True)
+  U_res, B = w2v.tensorflow_embedding(PMI,lambda1,d,iterations, \
+                                      display_progress=True)
   run_time = clock() - embedding_algo_start_time
+
+  name = name + "_iterations_" + str(iterations) + \
+               "_lambda1_" + str(lambda1) + \
+               "_dimensions_" + str(d) +  "_"
 
   #save the embeddings
   np.save("tf_embedding/" + name + "tfU.npy", U_res)
-  np.save("tf_embedding/" + name + "tfV.npy", V_res)
+  np.save("tf_embedding/" + name + "tfB.npy", B)
+
   print "saved embeddings"
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
-                'lambda2':lambda2, 'dimensions':d, 'run_time':run_time}
+                'dimensions':d, 'run_time':run_time}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
@@ -402,7 +408,7 @@ def test_word_embedding():
   get_type = True
   while get_type:
     type = raw_input("Which embedding do you want to load?:\n"
-                     +"tSNE,svdU, svdVt\n")
+                     +"tSNE,svdU, svdVt, tfU, tfV\n")
     if type == "tSNE":
       subfolder = "/tSNE/"
       postfix = "svdU_TSNE."
@@ -415,6 +421,14 @@ def test_word_embedding():
       subfolder = "svd/"
       postfix = "svdVt."
       get_type = False
+    elif type == 'tfU':
+      subfolder = "tf_embedding/"
+      postfix = ".+tfU."
+      get_type = False
+    elif type == 'tfV':
+      subfolder = "tf_embedding/"
+      postfix = ".+tfV."
+      get_type = False
     else:
       print "invalid embedding choice"
 
@@ -424,15 +438,39 @@ def test_word_embedding():
     pattern = re.compile("[\w]*PMI_" + year + postfix)
     files = os.listdir(os.getcwd() + '/' + subfolder)
     file = filter(lambda x: re.match(pattern,x),files )
+    file_count = len(file)
     if not file:
       print "year not found, please choose from the available year"
       for f in files:
         print f
+    elif file_count > 1:
+      print "multiple files found please type in index to choose file"
+      for i in range(file_count):
+        print i, ":", file[i]
+      index = int(raw_input("select index 0 - "+str(file_count-1) + '\n'))
+      if index > file_count or index < 0:
+        print "invalid selection"
+      else:
+        file = file[index]
+        get_year = False
     else:
+      file = file[0]
       get_year = False
       
   #load in tSNE file
-  embedding = np.load(subfolder + file[0])
+  embedding = np.load(subfolder + file)
+
+  if type == "tfU":
+    if (raw_input("load core tensor? enter [y] to include B in embedding\n")
+        =='y'):
+      B_file = list(file) #loads the B tensor TODO: Make this more robust
+      B_file[-5] = 'B'
+      core_tensor = np.load(subfolder + "".join(B_file))
+      vals, vecs = np.linalg.eigh(core_tensor)
+      print vals
+      embedding = np.dot(embedding, map(lambda x: sqrt(x),vals) * vecs)
+
+  normalize(embedding)
   n = embedding.shape[0]
   #load indices
   pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
@@ -452,6 +490,29 @@ def test_word_embedding():
 
   word_embedding_arithmetic(embedding, indices, k)
 
+'''-----------------------------------------------------------------------------
+    normalize(embedding,mode)
+      This function takes in an n x d numpy array and normalizes it based off of
+      the mode that is passed into. The changes are all made the embedding 
+      passed in, rather than making a new matrix and returning it. 
+    Input:
+      embedding (n x d numpy array)
+        the embedding to be normalized
+      mode - (int)
+        the mode to normalize with respect to. Default is 1, indicating 
+        normalize by the rows. 
+    Note:
+      This is currently implemented for a matrix input, but it may be useful 
+      to expand the normalization to tensors of higher order. 
+-----------------------------------------------------------------------------'''
+def normalize(embedding,mode=1):
+  size = embedding.shape[mode-1]
+  if mode == 1:
+    for i in range(size):
+      embedding[i,:] = embedding[i,:]/np.linalg.norm(embedding[i,:])
+  else:
+    for i in range(size):
+      embedding[:,i] = embedding[:, i] / np.linalg.norm(embedding[:, i])
 
 def query_word_neighbors(embedding, indices, k):
   get_word = True
@@ -573,6 +634,45 @@ def partial_insertion_sort(list, insert_before, k):
 def profile_read_in_function():
   #cProfile.run('test_func()')
   cProfile.run('read_in_pmi(FILE_NAME,True)')
+
+'''-----------------------------------------------------------------------------
+    load_tensor_slices(slices)
+      This function takes in a list of slices to load into a third order 
+      tensor and returns a dictionary of the slices.This function uses a 
+      thread for each slice to improve speed by latency hiding
+    Input:
+      slices - string list
+        a list of the files to l
+-----------------------------------------------------------------------------'''
+def load_tensor_slices(slices):
+  index = 0
+  tensor_slices = {}
+  '''
+  #mp.set_start_method('fork')
+  processes = []
+  q = mp.Queue()
+  
+  for slice in slices:
+    p = mp.Process(target=process_helper,args=(index,slice,q))
+    processes.append(p)
+    p.start()
+    index += 1
+
+  for p in processes:
+    p.join()
+    slice_index, PMI = q.get()
+    tensor_slices[slice_index] = PMI
+  '''
+
+  for slice in slices:
+    tensor_slices[index],_ = read_in_pmi(slice)
+    index += 1
+  return tensor_slices
+
+def process_helper(slice_index,slice_file,queue):
+  PMI, _ = read_in_pmi(slice_file,max_words=10,display_progress=True)
+  queue.put((slice_index,PMI))
+
 
 '''-----------------------------------------------------------------------------
     read_in_word_index()

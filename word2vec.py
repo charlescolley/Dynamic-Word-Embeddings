@@ -10,7 +10,7 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  print "blah"
+  test_function()
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -237,11 +237,10 @@ def build_loss_function(word_count_matrix, word_count, k):
       lambda1 - (float)
         the regularization constant multiplied to the frobenius norm of the U 
         matrix embedding.
-      lambda2 - (float)
-        the regularization constant multiplied to the frobenius norm of the V
-        matrix embedding.
       d - (int)
         the dimensional embedding to be learned.
+      batch_size - (int)
+        a positive integer which must be great than 0, and less than n.
       iterations - (int)
         the number of iterations to train on.
       display_progress - (optional bool)
@@ -250,24 +249,25 @@ def build_loss_function(word_count_matrix, word_count, k):
     Returns:
       U_res - (n x d dense matrix)
         the d dimensional word emebedding 
-      V_res - (n x d dense matrix)
-        the d dimensional context embedding
+      B_res - (n x d dense matrix)
+        the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
-def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
+def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
                          display_progress = False):
   n = P.shape[0]
   sess = tf.Session()
   lambda_1 = tf.constant(lambda1,name="lambda_1")
-  lambda_2 = tf.constant(lambda2,name="lambda_2")
   U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
-  V = tf.get_variable("V",initializer=tf.random_uniform([n,d], -0.1, 0.1))
-
-  PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
-  svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * U,V,transpose_b=True)))
+  B = tf.get_variable("B",initializer=tf.ones([d,d]))
+  PMI = tf.sparse_placeholder(tf.float32)
+#  PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
+  UB = U * B
+  svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
+                                                        transpose_b=True)))
   fro_1 = tf.multiply(lambda_1, tf.norm(U))
-  fro_2 = tf.multiply(lambda_2, tf.norm(V))
-
-  loss = tf.add(tf.add(svd_term,fro_1), fro_2)
+#  fro_2 = tf.multiply(lambda_2, tf.norm(V))
+#  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
+  loss = svd_term + fro_1
 
   optimizer = tf.train.AdagradOptimizer(.01)
   train = optimizer.minimize(loss)
@@ -278,10 +278,71 @@ def tensorflow_embedding(P,lambda1, lambda2, d, iterations,
     if display_progress:
       if (i % (.1*iterations)) == 0:
         print "{}% training progress".format((float(i)/iterations) * 100)
+    indices = np.random.choice(xrange(n),size =batch_size,replace=False)
+    P_submatrix = P[np.ix_(xrange(P.shape),indices)]
+    sess.run(train,feed_dict={
+      PMI:tf.SparseTensorValue(indices=P_submatrix.keys(),
+                               values=P_submatrix.values(),
+                               dense_shape=[batch_size,n]),
+      U:tf.gather(U,indices)}
+    )
 
-    sess.run(train)
-  U_res,V_res = sess.run([U,V])
-  return U_res, V_res
+  U_res,B_res = sess.run([U,B])
+  return U_res, B_res
+
+
+def test_function():
+  sess = tf.Session()
+  b = tf.get_variable("b",initializer=5*tf.ones([1,5]))
+  x = tf.get_variable("x",initializer=tf.random_uniform([1,5]))
+  loss = tf.norm(b - x)
+  optimizer = tf.train.GradientDescentOptimizer(.01)
+  train = optimizer.minimize(loss)
+  init = tf.global_variables_initializer()
+  sess.run(init)
+
+  indices = np.random.choice(range(5),size=2,replace=False)
+  mask = np.full(5,False)
+  for index in indices:
+    mask[index] = True
+  print "x before",sess.run(x)
+
+  update_these = entry_stop_gradients(tf.gather(x,indices),mask)
+  print sess.run(update_these)
+  grad = optimizer.compute_gradients(loss,update_these)
+  print sess.run(grad)
+
+
+
+
+'''-----------------------------------------------------------------------------
+    project_onto_positive_eigenspaces(A)
+      This function takes in a np 2d array and returns the dense matrix with the
+      eigenspaces associated with eigenvalues < 0 removed. 
+-----------------------------------------------------------------------------'''
+def project_onto_positive_eigenspaces(A):
+  vals, vecs = np.linalg.eigh(A)
+  positive_eigs = filter(lambda x: vals[x] > 0, range(A.shape[0]))
+  submatrix = vecs[np.ix_(range(A.shape[0]), positive_eigs)]
+  return np.dot(submatrix,(vals[positive_eigs]*submatrix).T)
+
+
+'''-----------------------------------------------------------------------------
+   a tensorflow helper function used to only compute certain gradients. 
+   
+   source - https://github.com/tensorflow/tensorflow/issues/9162
+-----------------------------------------------------------------------------'''
+def entry_stop_gradients(target, mask):
+  mask_h = tf.logical_not(mask)
+
+  mask = tf.cast(mask, dtype=target.dtype)
+  mask_h = tf.cast(mask_h, dtype=target.dtype)
+
+  return tf.stop_gradient(mask_h * target) + mask * target
+
+
+#def t_svd()
 
 if __name__ == "__main__":
     main()
+
