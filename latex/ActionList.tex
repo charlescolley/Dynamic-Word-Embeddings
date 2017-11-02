@@ -1,5 +1,8 @@
 \documentclass{report}
+\usepackage{enumitem}
 
+\newcommand{\Done}{\item[\Square]}
+\newcommand{\ToDo}{\item[\CheckedBox]}
 
 \begin{document}
 \section{Action List}
@@ -9,22 +12,26 @@
 		\subsubsection{2 - tucker}
 			\begin{enumerate}
 				\item trust region methods for choice of regularization constants (log scale search/ armijo's method )
-				\item Add in core matrix B into the factorizations
+				\item load in and iterate over each of the time slices at the same time
+				\item implement a batch optimizer in tensorflow
+				\item implement a stochastic optimizer in tensorflow
+				\item use multiprocessing library to handle naively parallelizable tasks?
+				\item[h] Add in core matrix B into the factorizations
 				\begin{enumerate}
-					\item add in B symmetry encouraging objective functions
-					\item project into the eigenspaces associated with positive eigenvalues of B
-					\item using projection methods to minimize von-neumann entropy. 
+					\item \textbf{Done} add in B symmetry encouraging objective functions
+					\item \textbf{Done} project into the eigenspaces associated with positive eigenvalues of B
+					\item using projection methods to minimize von-neumann entropy.(we have a new method for enforcing positive definiteness, however tensorflow has proximal gradient descent optimizers)
 				\end{enumerate}
 			\end{enumerate}
 		\subsubsection{t-svd}
 			\begin{enumerate}
-				\item implement t-svd in tensorflow, requires batch processing to compute the fft for each tube.  
+				\item implement t-svd in tensorflow, requires batch processing to compute the fft for each tube.(Will be straight forward once the batch processing routines are finished).
 			\end{enumerate}
 		\subsubsection{Interface software}
 		  \begin{enumerate}
 		  	\item Bug in the 3D-scatter plots, plotly won't plot large 3D- scatter.
 		  	\item remove words in input sentence from result of k-nearest words
-		  	\item properly normalize the rows of the SVD rows 
+		  	\item \textbf{Done} properly normalize the rows of the SVD rows 
 		  \end{enumerate}
 	\subsection{Analysis}
 		How can we properly measure how successful a given word embedding is for a given text corpus. 
