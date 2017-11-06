@@ -1,7 +1,8 @@
 import tensorflow as tf
 import numpy as np
-from math import log
+from math import log, ceil
 from scipy.sparse.linalg import svds, LinearOperator
+import scipy.sparse as sp
 import matplotlib.pyplot as plt
 from sklearn.decomposition import TruncatedSVD
 #import plotly.offline as py
@@ -10,7 +11,7 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  test_function()
+  test_function(sp.random(10,10,density=.6,format="dok"), d=5, batch_size=3)
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -243,6 +244,9 @@ def build_loss_function(word_count_matrix, word_count, k):
         a positive integer which must be great than 0, and less than n.
       iterations - (int)
         the number of iterations to train on.
+      results_file - (optional str)
+        the file location to write the summary files to. Used for running 
+        tensorboard
       display_progress - (optional bool)
         updates the user in increments of 10% of how much of the training has 
         completed.
@@ -253,66 +257,140 @@ def build_loss_function(word_count_matrix, word_count, k):
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
 def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
+                         results_file=None,
                          display_progress = False):
+  if results_file:
+    writer = tf.summary.FileWriter(results_file)
+
   n = P.shape[0]
   sess = tf.Session()
-  lambda_1 = tf.constant(lambda1,name="lambda_1")
-  U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
-  B = tf.get_variable("B",initializer=tf.ones([d,d]))
-  PMI = tf.sparse_placeholder(tf.float32)
-#  PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
-  UB = U * B
-  svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
-                                                        transpose_b=True)))
-  fro_1 = tf.multiply(lambda_1, tf.norm(U))
-#  fro_2 = tf.multiply(lambda_2, tf.norm(V))
-#  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
-  loss = svd_term + fro_1
 
-  optimizer = tf.train.AdagradOptimizer(.01)
-  train = optimizer.minimize(loss)
+  with tf.name_scope("loss_func"):
+    lambda_1 = tf.constant(lambda1,name="lambda_1")
+    U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
+    B = tf.get_variable("B",initializer=tf.ones([d,d]))
+    #PMI = tf.sparse_placeholder(tf.float32)
+    PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
+    UB = U * B
+    svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
+                                                          transpose_b=True)))
+    fro_1 = tf.multiply(lambda_1, tf.norm(U))
+  #  fro_2 = tf.multiply(lambda_2, tf.norm(V))
+  #  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
+    loss = svd_term + fro_1
+    if results_file:
+      tf.summary.scalar('loss',loss)
+      tf.summary.tensor_summary("U",U)
+      tf.summary.tensor_summary("B",B)
+
+  with tf.name_scope("train"):
+    #optimizer = tf.train.AdagradOptimizer(.01)
+    optimizer = tf.keras.optimizers.SGD(.01)
+    train = optimizer.minimize(loss)
+
+  if results_file:
+    writer.add_graph(sess.graph)
+    merged_summary = tf.summary.merge_all()
+
   init = tf.global_variables_initializer()
   sess.run(init)
+
+  def train_SGD():
+    indices = np.random.choice(xrange(n), size=batch_size, replace=False)
+    P_submatrix = P[np.ix_(xrange(P.shape), indices)]
+
+
+    sess.run(train, feed_dict={
+      PMI: tf.SparseTensorValue(indices=P_submatrix.keys(),
+                                values=P_submatrix.values(),
+                                dense_shape=[batch_size, n]),
+      U: tf.gather(U, indices)})
 
   for i in range(iterations):
     if display_progress:
       if (i % (.1*iterations)) == 0:
         print "{}% training progress".format((float(i)/iterations) * 100)
-    indices = np.random.choice(xrange(n),size =batch_size,replace=False)
-    P_submatrix = P[np.ix_(xrange(P.shape),indices)]
-    sess.run(train,feed_dict={
-      PMI:tf.SparseTensorValue(indices=P_submatrix.keys(),
-                               values=P_submatrix.values(),
-                               dense_shape=[batch_size,n]),
-      U:tf.gather(U,indices)}
-    )
+
+    if results_file:
+      if (i % 5 == 0):
+        writer.add_summary(sess.run(merged_summary),i)
+    sess.run(train)
 
   U_res,B_res = sess.run([U,B])
   return U_res, B_res
 
 
-def test_function():
+def frobenius_diff(A, B):
+  return tf.reduce_sum((A-tf.matmul(B, B,transpose_b=True))** 2)
+
+def tensorflow_SGD(P, d, batch_size = 1):
+  n = P.shape[0]
   sess = tf.Session()
-  b = tf.get_variable("b",initializer=5*tf.ones([1,5]))
-  x = tf.get_variable("x",initializer=tf.random_uniform([1,5]))
-  loss = tf.norm(b - x)
-  optimizer = tf.train.GradientDescentOptimizer(.01)
+
+  partition_size = tf.constant([batch_size, d],dtype=tf.float32)
+
+
+  #initialize arrays
+  total_partitions = int(ceil(n/float(batch_size)))
+  PMI_segments = total_partitions * [None]
+  U_segments = total_partitions * [None]
+
+
+  #create variables for rows of U and sections of P
+  for i in range(total_partitions-1):
+    print i, len(U_segments)
+    U_segments[i] = \
+      tf.get_variable("U_{}".format(i),
+                      initializer=tf.random_uniform([batch_size,d]))
+    tf.random_uniform([])
+    P_submatrix = P[i*batch_size:(i+1)*batch_size,:]
+    PMI_segments[i] = \
+      tf.SparseTensor(
+        indices =np.array(P_submatrix.keys()),
+        values=np.array(P_submatrix.values()),
+        dense_shape=np.array([batch_size,d]))
+
+  #set the last potentially irregular elements
+  U_segments[-1] = \
+    tf.get_variable(("U_{}".format(n)),
+                     initializer = tf.random_uniform([n % batch_size,d]))
+
+
+  P_submatrix = P[-(n % batch_size):-1,:]
+  PMI_segments[-1] = \
+    tf.SparseTensor(
+      indices=P_submatrix.keys(), values=P_submatrix.values(),
+      dense_shape=partition_size)
+
+  B = tf.get_variable("B",initializer=tf.ones([d,d]))
+
+  #define loss functions
+  with tf.name_scope("loss_functions"):
+    segment_loss_func = lambda Pair: frobenius_diff(Pair[0], Pair[1] * B)
+    loss = tf.reduce_sum(
+      tf.foldr(segment_loss_func, tf.TensorArray(tf.stack(PMI_segments,U_segments)),\
+               shape = [total_partitions,batch_size,d],\
+               dtype=tf.float32))
+
+
+
+  optimizer = tf.train.GradientDescentOptimizer(.1)
   train = optimizer.minimize(loss)
-  init = tf.global_variables_initializer()
-  sess.run(init)
+  sess = tf.Session()
 
-  indices = np.random.choice(range(5),size=2,replace=False)
-  mask = np.full(5,False)
-  for index in indices:
-    mask[index] = True
-  print "x before",sess.run(x)
-
-  update_these = entry_stop_gradients(tf.gather(x,indices),mask)
-  print sess.run(update_these)
-  grad = optimizer.compute_gradients(loss,update_these)
-  print sess.run(grad)
+  with tf.name_scope("initialization"):
+    init = tf.global_variables_initializer()
+    sess.run(init)
 
 
+  print "PMI[0] before",sess.run(U_segments[0])
+
+
+  for i in range(150):
+    grad = optimizer.compute_gradients(loss,var_list=U_segments[0])
+    print "grad_U_{}:".format(i),sess.run(grad)
+    sess.run(U_segments[i].assign( U_segments[i] - .1*grad[0]))
+    print "x after",sess.run(U_segments[i])
 
 
 '''-----------------------------------------------------------------------------
