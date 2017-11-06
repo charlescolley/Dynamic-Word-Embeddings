@@ -263,7 +263,7 @@ def build_loss_function(word_count_matrix, word_count, k):
       B_res - (n x d dense matrix)
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
-def tensorflow_embedding(P_list, lambda1, d, batch_size, iterations,
+def tensorflow_embedding(P_list, lambda1,lambda2, d, iterations,
                          results_file=None,
                          display_progress = False):
   if results_file:
@@ -275,6 +275,8 @@ def tensorflow_embedding(P_list, lambda1, d, batch_size, iterations,
 
   with tf.name_scope("loss_func"):
     lambda_1 = tf.constant(lambda1,name="lambda_1")
+    lambda_2 = tf.constant(lambda2, name="lambda_2")
+
     U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
     B = tf.get_variable("B",initializer=tf.ones([slices,d,d]))
     #PMI = tf.sparse_placeholder(tf.float32)
@@ -293,7 +295,7 @@ def tensorflow_embedding(P_list, lambda1, d, batch_size, iterations,
     svd_term = tf.norm(tf.sparse_add(PMI,
       tf.map_fn(lambda UB_k: tf.matmul(-1 * UB_k, UB_k, transpose_b=True),UB)))
     fro_1 = tf.multiply(lambda_1, tf.norm(U))
-    #fro_2 = tf.multiply(lambda_2,tf.norm(B))
+    fro_2 = tf.multiply(lambda_2,tf.norm(B))
   #  fro_2 = tf.multiply(lambda_2, tf.norm(V))
   #  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
     loss = svd_term + fro_1

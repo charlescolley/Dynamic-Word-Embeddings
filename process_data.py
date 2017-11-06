@@ -355,32 +355,44 @@ def word_embedding_arithmetic(embedding, indices, k):
           print neighbor
 
 def test_tensorflow():
-  year = 2000
+  years = [2000,2001]
   iterations = 1000
   lambda1 = -1.0
   lambda2 = -1.0
   d = 50
   cwd = os.getcwd()
-
+  slices = []
   # check if places for tf_embeddings exist
   path = os.path.join(cwd, 'tf_embedding')
   if not os.path.exists(path):
     os.makedirs(path)
 
-  pattern = re.compile("[\w]*PMI_" + str(year) + ".")
-  files = os.listdir(os.getcwd())
-  file = filter(lambda x: re.match(pattern, x), files)[0]
-  name, _ = file.split('.')
+  #check if places for tf_board existt
+  path = os.path.join(cwd, 'tf_board')
+  if not os.path.exists(path):
+    os.makedirs(path)
 
-  PMI, _ = read_in_pmi(file, display_progress=True)
-#  PMI = sp.random(100,100,format='dok')
+
+  for year in years:
+    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+    files = os.listdir(os.getcwd())
+    file = filter(lambda x: re.match(pattern, x), files)[0]
+    print file
+    name, _ = file.split('.')
+
+    PMI, _ = read_in_pmi(file, display_progress=True)
+    #PMI = sp.random(100, 100, format='dok')
+
+    slices.append(PMI)
+
   embedding_algo_start_time = clock()
-  U_res, B = w2v.tensorflow_embedding(PMI,lambda1,d,iterations, \
+  U_res, B = w2v.tensorflow_embedding(slices,lambda1,lambda2,d,iterations, \
                                       display_progress=True)
   run_time = clock() - embedding_algo_start_time
-
+  name = "test_test_test"
   name = name + "_iterations_" + str(iterations) + \
                "_lambda1_" + str(lambda1) + \
+               "_lambda2_" + str(lambda2) + \
                "_dimensions_" + str(d) +  "_"
 
   #save the embeddings
@@ -390,7 +402,7 @@ def test_tensorflow():
   print "saved embeddings"
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
-                'dimensions':d, 'run_time':run_time}
+                'lambda2':lambda2,'dimensions':d, 'run_time':run_time}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
