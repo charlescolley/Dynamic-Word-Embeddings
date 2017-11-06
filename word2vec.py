@@ -305,7 +305,7 @@ def tensorflow_embedding(P_list, lambda1,lambda2, d, iterations,
       tf.summary.tensor_summary("B",B)
 
   with tf.name_scope("train"):
-    optimizer = tf.train.AdagradOptimizer(.01)
+    optimizer = tf.train.AdamOptimizer()
     train = optimizer.minimize(loss)
 
   if results_file:
