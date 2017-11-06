@@ -4,6 +4,7 @@ from math import log, ceil
 from scipy.sparse.linalg import svds, LinearOperator
 import scipy.sparse as sp
 import matplotlib.pyplot as plt
+from functools import reduce
 from sklearn.decomposition import TruncatedSVD
 #import plotly.offline as py
 #import plotly.graph_objs as go
@@ -11,7 +12,13 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  test_function(sp.random(10,10,density=.6,format="dok"), d=5, batch_size=3)
+  slices = []
+  tensorflow_embedding([sp.random(5,5,density=.6,format="dok"),
+                        sp.random(5,5,density=.6,format="dok")],
+  lambda1=.01, d=2, batch_size=5, iterations=100)
+ # tensorflow_SGD_test(sp.random(5,5,density=.6,format="dok"),.01,d=5,
+  #                    batch_size=10,iterations=1)
+  #tensorflow_SGD(sp.random(10,10,density=.6,format="dok"), d=5, batch_size=3)
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -229,12 +236,12 @@ def build_loss_function(word_count_matrix, word_count, k):
   print "TODO"
 
 '''-----------------------------------------------------------------------------
-    tensorflow_embedding(P, lambda1, lambda2, d)
+    tensorflow_embedding(P_list, lambda1, lambda2, d)
       This function uses the tensorflow library in order to compute an embedding
       for the words present in the PMI matrix passed in. 
     Inputs:
-      P - (n x n sparse matrix)
-        The PMI matrix the embedding will be learned from.
+      P_list -(n x n sparse matrix) list
+        a list of the PMI matrices the embedding will be learned from.
       lambda1 - (float)
         the regularization constant multiplied to the frobenius norm of the U 
         matrix embedding.
@@ -256,7 +263,73 @@ def build_loss_function(word_count_matrix, word_count, k):
       B_res - (n x d dense matrix)
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
-def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
+def tensorflow_embedding(P_list, lambda1, d, batch_size, iterations,
+                         results_file=None,
+                         display_progress = False):
+  if results_file:
+    writer = tf.summary.FileWriter(results_file)
+
+  n = P_list[0].shape[0]
+  slices = len(P_list)
+  sess = tf.Session()
+
+  with tf.name_scope("loss_func"):
+    lambda_1 = tf.constant(lambda1,name="lambda_1")
+    U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
+    B = tf.get_variable("B",initializer=tf.ones([slices,d,d]))
+    #PMI = tf.sparse_placeholder(tf.float32)
+
+ #   indices = [(slice,i,j) for (i,j) in x.keys() for slice,x in enumerate(
+  #    P_list)]
+
+    indices = reduce(lambda x,y: x + y,[[(i,y,z) for (y,z) in P.keys()] for i,\
+        P in enumerate(P_list)])
+    values = reduce (lambda x,y: x + y, map(lambda x: x.values(),P_list))
+    PMI = tf.SparseTensor(indices=indices, values=values,
+                          dense_shape=[slices, n, n])
+
+
+    UB = tf.map_fn(lambda B_k: tf.matmul(U,B_k),B)
+    svd_term = tf.norm(tf.sparse_add(PMI,
+      tf.map_fn(lambda UB_k: tf.matmul(-1 * UB_k, UB_k, transpose_b=True),UB)))
+    fro_1 = tf.multiply(lambda_1, tf.norm(U))
+    #fro_2 = tf.multiply(lambda_2,tf.norm(B))
+  #  fro_2 = tf.multiply(lambda_2, tf.norm(V))
+  #  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
+    loss = svd_term + fro_1
+    if results_file:
+      tf.summary.scalar('loss',loss)
+      tf.summary.tensor_summary("U",U)
+      tf.summary.tensor_summary("B",B)
+
+  with tf.name_scope("train"):
+    optimizer = tf.train.AdagradOptimizer(.01)
+    train = optimizer.minimize(loss)
+
+  if results_file:
+    writer.add_graph(sess.graph)
+    merged_summary = tf.summary.merge_all()
+
+  init = tf.global_variables_initializer()
+  sess.run(init)
+
+  print sess.run(B)
+  for i in range(iterations):
+    if display_progress:
+      if (i % (.1*iterations)) == 0:
+        print "{}% training progress".format((float(i)/iterations) * 100)
+
+    if results_file:
+      if (i % 5 == 0):
+        writer.add_summary(sess.run(merged_summary),i)
+    sess.run(train)
+
+  U_res,B_res = sess.run([U,B])
+  print B_res
+  return U_res, B_res
+
+
+def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
                          results_file=None,
                          display_progress = False):
   if results_file:
@@ -271,12 +344,11 @@ def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
     B = tf.get_variable("B",initializer=tf.ones([d,d]))
     #PMI = tf.sparse_placeholder(tf.float32)
     PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
-    UB = U * B
+    UB = tf.matmul(U,B)
     svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
                                                           transpose_b=True)))
     fro_1 = tf.multiply(lambda_1, tf.norm(U))
-  #  fro_2 = tf.multiply(lambda_2, tf.norm(V))
-  #  B_sym = tf.norm(tf.subtract(B,tf.transpose(B)))
+
     loss = svd_term + fro_1
     if results_file:
       tf.summary.scalar('loss',loss)
@@ -285,7 +357,7 @@ def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
 
   with tf.name_scope("train"):
     #optimizer = tf.train.AdagradOptimizer(.01)
-    optimizer = tf.keras.optimizers.SGD(.01)
+    optimizer = tf.train.GradientDescentOptimizer(.01)
     train = optimizer.minimize(loss)
 
   if results_file:
@@ -294,18 +366,7 @@ def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
 
   init = tf.global_variables_initializer()
   sess.run(init)
-
-  def train_SGD():
-    indices = np.random.choice(xrange(n), size=batch_size, replace=False)
-    P_submatrix = P[np.ix_(xrange(P.shape), indices)]
-
-
-    sess.run(train, feed_dict={
-      PMI: tf.SparseTensorValue(indices=P_submatrix.keys(),
-                                values=P_submatrix.values(),
-                                dense_shape=[batch_size, n]),
-      U: tf.gather(U, indices)})
-
+  indices = [0,1]
   for i in range(iterations):
     if display_progress:
       if (i % (.1*iterations)) == 0:
@@ -314,6 +375,14 @@ def tensorflow_embedding(P, lambda1, d, batch_size, iterations,
     if results_file:
       if (i % 5 == 0):
         writer.add_summary(sess.run(merged_summary),i)
+
+    mask = [False]*n
+    mask[2] = True
+    U_sottf.stop_gradient(tf.boolean_mask(U,mask))
+    print sess.run(optimizer.compute_gradients(loss,U))
+    print "before:", sess.run(U)
+    print "after: ", sess.run(U)
+
     sess.run(train)
 
   U_res,B_res = sess.run([U,B])
