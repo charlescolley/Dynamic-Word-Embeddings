@@ -99,7 +99,12 @@
    		  = \frac{\partial}{\partial U_{ij}}\displaystyle \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} -  (UCU^T)_{i_1,i_2})^2 \\
    		 &= \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} -    \sum_{i_3}^{d}(U_{i_1,i_3}(CU^T)_{i_3,i_2})^2 
    		  = \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U^T_{i_4,i_2})^2 \\
-   		 &= \frac{\partial}{\partial U_{ij}} (\big[\sum_{\substack{i_1,i_2 \\ (i_1,i_2) \neq (i,j)}}^{n,n} (P_{i_1,i_2} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U^T_{i_4,i_2})^2\big] + (P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})^2) \\
+   		 &= \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i_2,i_4})^2 \\
+   		 &= \frac{\partial}{\partial U_{ij}} (\big[\sum_{\substack{i_1,i_2 \\ i_1 \neq i}}^{n,n} (P_{i_1,i_2} \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i_2,i_4})^2
+   		 + (P_{i,j} -\sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{j,i_4})^2 \\
+   		 &+ \big[\sum_{i_2}^n(P_{i,i_2} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})^2) \big]
+   		 + \big[\sum_{i_1}^n(P_{i_1,i} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i,i_4})^2\big]) \\
+   		 &FIX FROM HERE\\
    		 &= \frac{\partial}{\partial U_{ij}}((P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})^2) \\
    		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{\partial}{\partial U_{ij}}(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}) \\
    		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{\partial}{\partial U_{ij}}(-\sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}) \\
