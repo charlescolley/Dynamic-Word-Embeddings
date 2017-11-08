@@ -407,7 +407,7 @@ def test_tensorflow():
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
 
-t
+
 #todo: REMOVE WORDS IN INITIAL LIST FROM RESULTS
 '''-----------------------------------------------------------------------------
     test_word_embedding()

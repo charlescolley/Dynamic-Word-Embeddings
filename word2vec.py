@@ -12,13 +12,14 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  slices = []
-  tensorflow_embedding([sp.random(5,5,density=.6,format="dok"),
-                        sp.random(5,5,density=.6,format="dok")],
-  lambda1=.01, d=2, batch_size=5, iterations=100)
- # tensorflow_SGD_test(sp.random(5,5,density=.6,format="dok"),.01,d=5,
+  #test_function()
+#  slices = []
+ # tensorflow_embedding([sp.random(5,5,density=.6,format="dok"),
+  #                      sp.random(5,5,density=.6,format="dok")],
+  #lambda1=.01, d=2, batch_size=5, iterations=100)
+ #tensorflow_SGD_test(sp.random(5,5,density=.6,format="dok"),.01,d=5,
   #                    batch_size=10,iterations=1)
-  #tensorflow_SGD(sp.random(10,10,density=.6,format="dok"), d=5, batch_size=3)
+  tensorflow_SGD(sp.random(10,10,density=1,format="dok"), d=5, batch_size=3)
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -130,52 +131,6 @@ def matrix_stats(matrix):
   stats["SINGULAR_VALUES"] = svds(mat_vec(matrix, 3), k=10,
                                   return_singular_vectors=False)
   return stats
-
-'''-----------------------------------------------------------------------------
-   svd_grad_U(P,U,V)
-     This function returns the gradient of the function 
-     
-     .5*\|P - UV^T\|_F^2 +
-        \frac{\lambda_1}{2}\|U\|_F^2 + \frac{\lambda_1}{2}\|U\|_F^2
-        
-     which evaluates to (P + I\lambda_2)V - U(I\lambda_1 + V^TV). The function 
-     will output a dense (n x d) matrix where n is the number of words in the 
-     vocabulary and d is the dimension of the word embedding.
-   Inputs:
-     P - (n x n sparse matrix)
-       The PMI matrix to be passed in. 
-     U - (n x d dense matrix)
-       The word embedding matrix.
-     V - (n x d dense matrix)
-       The context embedding matrix.
-     lambda_1, lambda_2 - (double)
-       Smoothing constants.
-   Returns:
-     grad_U - (n x d dense matrix)
-       The gradient with respect to U. 
-   Notes:
-     Currently the implementation will compute the gradient in one fell 
-     swoop, as the input matrix P gets larger, we will need to move to batch 
-     processing to manage the data. 
------------------------------------------------------------------------------'''
-def svd_grad_U(P, U, V, lambda_1, lambda_2):
-  (n, d) = U.shape
-  Gram_V = grammian(V)
-  if lambda_1 != 0:
-    for i in range(d):
-      Gram_V[i,i] += lambda_1
-  UVTV = np.dot(U, Gram_V)
-
-  #temporarily add in the lambda_2 term to P
-  if lambda_2 != 0.0:
-    for i in range(n):
-      P[i,i] += lambda_2
-  PV = P * V
-  #remove diagonal terms
-  if lambda_2 != 0:
-    for i in range(n):
-      P[i,i] -= lambda_2
-  return PV + UVTV
 
 '''-----------------------------------------------------------------------------
     grammian(A):
@@ -344,8 +299,8 @@ def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
     lambda_1 = tf.constant(lambda1,name="lambda_1")
     U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
     B = tf.get_variable("B",initializer=tf.ones([d,d]))
-    #PMI = tf.sparse_placeholder(tf.float32)
-    PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
+    PMI = tf.sparse_placeholder(tf.float32)
+    #PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
     UB = tf.matmul(U,B)
     svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
                                                           transpose_b=True)))
@@ -377,11 +332,8 @@ def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
     if results_file:
       if (i % 5 == 0):
         writer.add_summary(sess.run(merged_summary),i)
-
-    mask = [False]*n
-    mask[2] = True
-    U_sottf.stop_gradient(tf.boolean_mask(U,mask))
-    print sess.run(optimizer.compute_gradients(loss,U))
+    indices = np.random.choice(range(n),1,replace=False)
+    sess.run()
     print "before:", sess.run(U)
     print "after: ", sess.run(U)
 
@@ -390,78 +342,106 @@ def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
   U_res,B_res = sess.run([U,B])
   return U_res, B_res
 
+def test_function():
+  sess = tf.Session()
 
-def frobenius_diff(A, B):
-  return tf.reduce_sum((A-tf.matmul(B, B,transpose_b=True))** 2)
+  np_b = np.random.rand(5)
+
+  a = tf.get_variable("a",initializer=tf.random_uniform([4,4]))
+  b = tf.get_variable("b", initializer=tf.random_uniform([2, 2]))
+
+  init = tf.global_variables_initializer()
+  sess.run(init)
+
+  print "a", sess.run(a)
+  print "b", sess.run(b)
+
+  print "slice multiplied", sess.run(tf.matmul(a[:,:2],b))
+
+def frobenius_diff(A, B, C):
+  return tf.reduce_sum((tf.sparse_add(A,tf.matmul(B, C,transpose_b=True)))** 2)
+
+def tf_zip(T1_list, T2_list):
+  tf.TensorArray(
+    tf.map_fn(lambda (x,y): tf.stack([x,y]),zip(T1_list,T2_list)))
 
 def tensorflow_SGD(P, d, batch_size = 1):
   n = P.shape[0]
+  P = P.astype(np.float32)
   sess = tf.Session()
-
-  partition_size = tf.constant([batch_size, d],dtype=tf.float32)
-
 
   #initialize arrays
   total_partitions = int(ceil(n/float(batch_size)))
-  PMI_segments = total_partitions * [None]
+  PMI_section = tf.sparse_placeholder(dtype=tf.float32)
   U_segments = total_partitions * [None]
 
 
-  #create variables for rows of U and sections of P
+  B = tf.get_variable("B",initializer=tf.ones([d,d]))
+
+  #define a function for instantiating a sparse subtensor from P
+  def tf_P_submatrix(i,j):
+    if i != total_partitions and j != total_partitions:
+      P_submatrix = P[i * batch_size:(i + 1) * batch_size,
+                      j * batch_size:(j + 1) * batch_size]
+      shape = np.array([batch_size, batch_size])
+    elif j != total_partitions:
+      P_submatrix = P[ -(n % batch_size):,
+                      j * batch_size:(j + 1) * batch_size]
+      shape = np.array([n % batch_size, batch_size])
+    elif i != total_partitions:
+      P_submatrix = P[i * batch_size:(i + 1) * batch_size,
+                    -(n % batch_size):]
+      shape = np.array([batch_size, n % batch_size])
+    else:
+      P_submatrix = P[-(n % batch_size):, -(n % batch_size):]
+      shape = np.array([n % batch_size, n % batch_size])
+    print shape
+    return (np.array(P_submatrix.keys()),
+            np.array(P_submatrix.values()),
+            shape)
+
+
+  #create variables for rows of U
   for i in range(total_partitions-1):
-    print i, len(U_segments)
     U_segments[i] = \
       tf.get_variable("U_{}".format(i),
                       initializer=tf.random_uniform([batch_size,d]))
-    tf.random_uniform([])
-    P_submatrix = P[i*batch_size:(i+1)*batch_size,:]
-    PMI_segments[i] = \
-      tf.SparseTensor(
-        indices =np.array(P_submatrix.keys()),
-        values=np.array(P_submatrix.values()),
-        dense_shape=np.array([batch_size,d]))
 
   #set the last potentially irregular elements
   U_segments[-1] = \
     tf.get_variable(("U_{}".format(n)),
                      initializer = tf.random_uniform([n % batch_size,d]))
 
-
-  P_submatrix = P[-(n % batch_size):-1,:]
-  PMI_segments[-1] = \
-    tf.SparseTensor(
-      indices=P_submatrix.keys(), values=P_submatrix.values(),
-      dense_shape=partition_size)
-
-  B = tf.get_variable("B",initializer=tf.ones([d,d]))
-
   #define loss functions
+  loss_funcs = [None]*total_partitions**2
   with tf.name_scope("loss_functions"):
-    segment_loss_func = lambda Pair: frobenius_diff(Pair[0], Pair[1] * B)
-    loss = tf.reduce_sum(
-      tf.foldr(segment_loss_func, tf.TensorArray(tf.stack(PMI_segments,U_segments)),\
-               shape = [total_partitions,batch_size,d],\
-               dtype=tf.float32))
+    for i in range(total_partitions):
+      for j in range(total_partitions):
+        loss_funcs[i*total_partitions + j] = \
+          frobenius_diff(PMI_section,
+                         tf.matmul(U_segments[i], B),
+                         tf.matmul(U_segments[j], B))
 
-
-
-  optimizer = tf.train.GradientDescentOptimizer(.1)
-  train = optimizer.minimize(loss)
-  sess = tf.Session()
+    loss = tf.reduce_sum(loss_funcs)
 
   with tf.name_scope("initialization"):
     init = tf.global_variables_initializer()
     sess.run(init)
 
+  optimizer = tf.train.GradientDescentOptimizer(.1)
 
-  print "PMI[0] before",sess.run(U_segments[0])
+  print "U_segments[0] before",sess.run(U_segments[0])
 
-
-  for i in range(150):
-    grad = optimizer.compute_gradients(loss,var_list=U_segments[0])
-    print "grad_U_{}:".format(i),sess.run(grad)
-    sess.run(U_segments[i].assign( U_segments[i] - .1*grad[0]))
+  for iter in range(1):
+    for i in range(total_partitions):
+      for j in range(total_partitions):
+        train = optimizer.minimize(
+          loss, var_list=[U_segments[i],U_segments[j]])
+        print i,j#,tf_P_submatrix(i,j)
+        sess.run(train,feed_dict = {PMI_section:tf_P_submatrix(i,j)})
     print "x after",sess.run(U_segments[i])
+
+
 
 
 '''-----------------------------------------------------------------------------
