@@ -52,16 +52,17 @@ def svd_grad_U(P, U, V, lambda_1, lambda_2):
       This function returns the gradient of \| X - A\|^2_F with respect to X.
     Which evaluates to -2(X - A). 
     Inputs:
-      X - (n x m matrix)
-        The matrix differentiating with respect to 
-      A - (n x m matrix)
-        The constant matrix.
+      X - (nm array)
+        a flattened matrix as an array which the objecitive function is being 
+        differentiated with respect to it.
+      A - (nm array)
+        The constant matrix flattened as an array.
     Returns:
-      grad_X - (n x m matrix)
+      grad_X - (nm matrix)
     Notes:
       currently the matrices have not be specified and should just be made 
       sure to be of the same time so the operations will be defined. 
 -----------------------------------------------------------------------------'''
 def frob_diff_grad(X,A):
-  grad_X = 2(X - A)
+  grad_X = 2*(X - A)
   return grad_X

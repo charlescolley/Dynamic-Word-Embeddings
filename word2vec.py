@@ -3,8 +3,10 @@ import numpy as np
 from math import log, ceil
 from scipy.sparse.linalg import svds, LinearOperator
 import scipy.sparse as sp
+import scipy.optimize as opt
 import matplotlib.pyplot as plt
 from functools import reduce
+import gradients as grad
 from sklearn.decomposition import TruncatedSVD
 #import plotly.offline as py
 #import plotly.graph_objs as go
@@ -12,6 +14,7 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
+  scipy_optimizer_test_func()
   #test_function()
 #  slices = []
  # tensorflow_embedding([sp.random(5,5,density=.6,format="dok"),
@@ -19,7 +22,7 @@ def main():
   #lambda1=.01, d=2, batch_size=5, iterations=100)
  #tensorflow_SGD_test(sp.random(5,5,density=.6,format="dok"),.01,d=5,
   #                    batch_size=10,iterations=1)
-  tensorflow_SGD(sp.random(10,10,density=1,format="dok"), d=5, batch_size=3)
+  #tensorflow_SGD(sp.random(10,10,density=1,format="dok"), d=5, batch_size=3)
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -161,6 +164,23 @@ def grammian(A):
         Gram_A[i,j] = entry
         Gram_A[j,i] = entry
   return Gram_A
+
+def scipy_optimizer_test_func():
+  A = np.random.rand(5,5)
+  X = np.random.rand(5,5)
+
+  A = A.flatten()
+  X = X.flatten()
+
+  print "A:", A
+  print "X:", X
+
+  f = lambda X: sum((X - A)**2)
+  f_prime = lambda X: grad.frob_diff_grad(X,A)
+
+  results = opt.minimize(f,X,method='BFGS',jac=f_prime)
+  print results.x
+
 
 '''-----------------------------------------------------------------------------
     build_objective_functions(word_count_matrix, k)
