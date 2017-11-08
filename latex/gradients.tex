@@ -2,13 +2,13 @@
 
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{verbatim}
 \DeclareMathOperator*{\argmax}{arg\,max}
-
+%-----------------------------------------------------------------------------%
 \begin{document}
    \textbf{word2vec gradients} \quad Charlie Colley \quad 9/29/17\\
    
-   
-   
+     
    $ \sigma(x) = \frac{1}{1 + e^{x}} $
    \[\frac{\partial \sigma}{\partial x}(x) 
      =  \frac{\partial}{\partial x}(\frac{e^x}{1+e^x}) 
@@ -25,7 +25,7 @@
    Objective function:\\
    $ \displaystyle\argmax_{V_c, V_w} 
      = \displaystyle\Sigma_{(w,c) \in D} 
-     \log(\sigma(\langle v_c, v_w\rangle))  +\displaystyle\Sigma_{(w,c)v\in D'} 
+     \log(\sigma(\langle v_c, v_w\rangle)) +\displaystyle\Sigma_{(w,c)v\in D'} 
          \log(\sigma(-\langle v_c, v_w \rangle)) $
 
    \[
@@ -51,6 +51,7 @@
 
    
    \newpage
+ 
    Let $ P \in \mathbb{R}^{n \times n} $ and $ U, V \in \mathbb{R}^{n \times d} $ and let $ f = \|P - UV^T\|_F^2 $
    \begin{align*}
      (\nabla_U f)_{ij} =& \frac{\partial}{\partial U_{ij}}\|P - UV^T\|_F^2 = 
@@ -91,6 +92,31 @@
    	\[ 
    	  f(P,U,B) = \|P - UBB^TU^T\|_F^2
    	\]
+   	\textbf{useful gradients}
+   	\begin{align*}
+   	&\frac{\partial}{\partial U_{ij}} (- \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i,i_4}) \\
+   	&=  -\frac{\partial}{\partial U_{ij}} (\sum_{i_3 \neq j,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i,i_4} 
+   	+ \sum_{i_4}^{d}U_{i,j}C_{j,i_4}U_{i,i_4}) \\
+   	&= -\frac{\partial}{\partial U_{ij}} (\sum_{i_3 \neq j,i_4 \neq j}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i,i_4} 
+   	+ \sum_{i_3 \neq j}^{d}U_{i,i_3}C_{i_3,j}U_{i,j} 
+   	+ \sum_{i_4}^{d}U_{i,j}C_{j,i_4}U_{i,i_4}\\
+   	&= -\frac{\partial}{\partial U_{ij}} (\sum_{i_3 \neq j,i_4 \neq j}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i,i_4} 
+   	+ \sum_{i_3 \neq j}^{d}U_{i,i_3}C_{i_3,j}U_{i,j} 
+   	+ \sum_{i_4 \neq j}^{d}U_{i,j}C_{j,i_4}U_{i,i_4} 
+   	+ U_{i,j}C_{j,j}U_{i,j} )\\
+   	&= -\frac{\partial}{\partial U_{ij}} (
+   	\sum_{i_3 \neq j}^{d}U_{i,i_3}C_{i_3,j}U_{i,j} 
+   	+ \sum_{i_4 \neq j}^{d}U_{i,j}C_{j,i_4}U_{i,i_4} 
+   	+ U_{i,j}C_{j,j}U_{i,j} ) \\
+   	&= -(
+   	\sum_{i_3 \neq j}^{d}U_{i,i_3}C_{i_3,j} 
+   	+ \sum_{i_4 \neq j}^{d}C_{j,i_4}U_{i,i_4} 
+   	+ 2U_{i,j}C_{j,j})\\
+   	&= -(
+   	\sum_{i_3}^{d}U_{i,i_3}C_{i_3,j} + \sum_{i_4}^{d}C_{j,i_4}U_{i,i_4})  
+   	=UC_{i,j} + CU^T_{ji} = UC_{i,j} + UC^T_{i,j}
+   	\end{align*}
+   	
    	Letting $ C = BB^T $
    	\begin{align*}
    		 (\nabla_{U}f)_{ij}
@@ -100,18 +126,44 @@
    		 &= \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} -    \sum_{i_3}^{d}(U_{i_1,i_3}(CU^T)_{i_3,i_2})^2 
    		  = \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U^T_{i_4,i_2})^2 \\
    		 &= \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n} (P_{i_1,i_2} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i_2,i_4})^2 \\
-   		 &= \frac{\partial}{\partial U_{ij}} (\big[\sum_{\substack{i_1,i_2 \\ i_1 \neq i}}^{n,n} (P_{i_1,i_2} \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i_2,i_4})^2
+   		 &= \frac{\partial}{\partial U_{ij}} (\big[\sum_{\substack{i_1,i_2 \\ (i_1,i_2) \neq (i,j)}}^{n,n} (P_{i_1,i_2} \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i_2,i_4})^2 \big]
    		 + (P_{i,j} -\sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{j,i_4})^2 \\
    		 &+ \big[\sum_{i_2}^n(P_{i,i_2} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})^2) \big]
-   		 + \big[\sum_{i_1}^n(P_{i_1,i} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i,i_4})^2\big]) \\
-   		 &FIX FROM HERE\\
-   		 &= \frac{\partial}{\partial U_{ij}}((P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})^2) \\
-   		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{\partial}{\partial U_{ij}}(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}) \\
-   		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{\partial}{\partial U_{ij}}(-\sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}) \\
-   		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{-\partial}{\partial U_{ij}}(\big[\sum_{\substack{i_3,i_4\\ i_3 \neq j}}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}\big] + U_{i,j}\sum_{i_4}^dC_{j,i_4}U^T_{i_4,j}) \\
-   		 &=2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{-\partial}{\partial U_{ij}}(U_{i,j}\sum_{i_4}^dC_{j,i_4}U^T_{i_4,j}) \\
-   		 &= -2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})(\sum_{i_4}^dC_{j,i_4}U^T_{i_4,j}) \\
-   		 &= -2(P_{i,j} - (UCU^T)_{i,j})(CU^T)_{j,j}
-   		 = -2(P_{i,j} - (UBB^TU^T)_{i,j})(BB^TU^T)_{j,j}   	
+   		  +\big[\sum_{i_1}^n\frac{\partial}{\partial U_{ij}}(P_{i_1,i} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i,i_4})^2\big]) \\
+   		 &\text{Note that each terms of the sum can be computed as}\\
+   		 & \frac{\partial}{\partial U_{ij}} ((P_{i,j} -  \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{j,i_4})^2) \\
+   		 &=-2(P_{i,j} -  \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{j,i_4})
+   		 (\frac{\partial}{\partial U_{ij}}(\big[\sum_{\substack{i_3,i_4 \\ i_3 \neq j}}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{j,i_4}\big] +
+   		 U_{i,j}\sum_{i_4}C_{j,i_4}U_{j,i_4}))\\
+   		 &= -2(P_{i,j} -  \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{j,i_4})
+   		 (\sum_{i_4}C_{j,i_4}U_{j,i_4}) = -2(P_{i,j} - (UCU^T)_{i,j})(CU^T)_{j,j}\\
+   		 & \frac{\partial}{\partial U_{ij}}\sum_{i_2}^n(P_{i,i_2} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})^2 
+   		 = \sum_{i_2}^n\frac{\partial}{\partial U_{ij}}(P_{i,i_2} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})^2\\
+   		 &= \sum_{i_2}^n
+   		 2(P_{i,i_2} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})
+   		 (-\sum_{i_4}C_{j,i_4}U_{i_2,i_4})\\  	
+%   		  &= \sum_{i_2\neq i}^n\frac{\partial}{\partial U_{ij}}(P_{i,i_2} 
+%  		 - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})^2 
+%  		 + \frac{\partial}{\partial U_{ij}}(P_{i,i} 
+%  		 - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i,i_4})^2\\
+%  		 &= \sum_{i_2\neq i}^n
+%  		 2(P_{i,i_2} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i_2,i_4})
+%  		 (-\sum_{i_4}C_{j,i_4}U_{i_2,i_4})\\
+%  	   &+ 2
+%  	   (P_{i,i} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U_{i,i_4})
+%  	   ( - \sum_{i_4}^{d}C_{j,i_4}U_{i,i_4}) \\
+   		 &\sum_{i_1}^n\frac{\partial}{\partial U_{ij}}(P_{i_1,i} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i,i_4})^2\\
+   		 &= \sum_{i_1}^n2(P_{i_1,i} - \sum_{i_3,i_4}^{d,d}U_{i_1,i_3}C_{i_3,i_4}U_{i,i_4})(-(UC_{i,j} + UC^T_{i,j}))\\  		
+   		 &\text{plugging these back into the original computation we get}\\
+%   		 &= \frac{\partial}{\partial U_{ij}}((P_{i,j} 
+%   		 - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})^2) \\
+%   		 &= 2(P_{i,j} 
+%   		 -\sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{\partial}{\partial U_{ij}}(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}) \\
+%   		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{\partial}{\partial U_{ij}}(-\sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}) \\
+%   		 &= 2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{-\partial}{\partial U_{ij}}(\big[\sum_{\substack{i_3,i_4\\ i_3 \neq j}}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j}\big] + U_{i,j}\sum_{i_4}^dC_{j,i_4}U^T_{i_4,j}) \\
+%   		 &=2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})\frac{-\partial}{\partial U_{ij}}(U_{i,j}\sum_{i_4}^dC_{j,i_4}U^T_{i_4,j}) \\
+%   		 &= -2(P_{i,j} - \sum_{i_3,i_4}^{d,d}U_{i,i_3}C_{i_3,i_4}U^T_{i_4,j})(\sum_{i_4}^dC_{j,i_4}U^T_{i_4,j}) \\
+%   		 &= -2(P_{i,j} - (UCU^T)_{i,j})(CU^T)_{j,j}
+%   		 = -2(P_{i,j} - (UBB^TU^T)_{i,j})(BB^TU^T)_{j,j}   
    		 \end{align*}
 \end{document}
