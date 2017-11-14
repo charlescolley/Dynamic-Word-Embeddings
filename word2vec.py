@@ -14,7 +14,9 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  scipy_optimizer_test_func()
+  A = make_test_tensor()
+  rotate_tensor(A)
+  #scipy_optimizer_test_func()
   #test_function()
 #  slices = []
  # tensorflow_embedding([sp.random(5,5,density=.6,format="dok"),
@@ -23,6 +25,25 @@ def main():
  #tensorflow_SGD_test(sp.random(5,5,density=.6,format="dok"),.01,d=5,
   #                    batch_size=10,iterations=1)
   #tensorflow_SGD(sp.random(10,10,density=1,format="dok"), d=5, batch_size=3)
+
+def make_test_tensor():
+  n = 2
+  m = 3
+  k = 2
+
+  A = [None] * k
+  for i in range(k):
+    A[i] = sp.random(n,m,density=0.0,format= 'dok')
+
+  val = 1
+  for i in range(k):
+    for j in range(n):
+      for l in range(m):
+        A[i][j,l] = val
+        val += 1
+
+  return A
+
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -462,8 +483,6 @@ def tensorflow_SGD(P, d, batch_size = 1):
     print "x after",sess.run(U_segments[i])
 
 
-
-
 '''-----------------------------------------------------------------------------
     project_onto_positive_eigenspaces(A)
       This function takes in a np 2d array and returns the dense matrix with the
@@ -489,8 +508,47 @@ def entry_stop_gradients(target, mask):
 
   return tf.stop_gradient(mask_h * target) + mask * target
 
+'''-----------------------------------------------------------------------------
+    t_svd(A)
+      This function takes in a 3rd order tensor and computes the t-svd 
+      algorithm 
+-----------------------------------------------------------------------------'''
+def t_svd(A,k):
+  A = rotate_tensor(A)
 
-#def t_svd()
+'''-----------------------------------------------------------------------------
+    rotate_tensor(A)
+      This function takes in a list of n x n sparse matrices representing a 
+      n x n x k tensor and returns a list of n x k sparse matrices which 
+      represent a n x k x n tensor
+    Input:
+      A - a list of (n x n) sparse dok matrices  
+    Note:
+      assuming that the keys and values of each dok sparse matrix are 
+      rnadomly ordered, but have the same ordering.
+-----------------------------------------------------------------------------'''
+def rotate_tensor(A):
+
+  n = A[0].shape[0]
+  m = A[0].shape[1]
+  slice_count = len(A)
+  rotated_A = [None] * m
+
+  #initialize empty sparse matrices
+  for j in range(m):
+    rotated_A[j] = sp.dok_matrix((n,slice_count))
+
+  #copy all non-zeros into their appropriate place in the rotated matrix
+  for k in range(slice_count):
+    for ((i,j),value) in A[k].items():
+      print i,j, k
+      rotated_A[j][i,k] = value
+
+  return rotated_A
+
+
+
+
 
 if __name__ == "__main__":
     main()

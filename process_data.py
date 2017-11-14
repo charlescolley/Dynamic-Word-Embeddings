@@ -14,7 +14,9 @@ import word2vec as w2v
 import pickle
 from functools import reduce
 import multiprocessing as mp
-import csv
+import process_scipts as ps
+import timeit as t
+
 #from memory_profiler import profile
 
 #Global Variables
@@ -29,7 +31,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  print "blah"
+  multiprocessing_test()
   # test_word_embedding()
   #load_tSNE_word_cloud(2000)
   #pmi = read_in_pmi() \
@@ -171,6 +173,9 @@ def get_word_indices():
 -----------------------------------------------------------------------------'''
 def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
                 max_words = None, display_progress = False):
+
+
+
   f = open(filename,"r")
   f.next() # skip word, context, pmi line
   total_edge_count = 0
@@ -180,6 +185,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   j_max = -1
   if max_words == None:
     max_words = float("inf")
+
 
   word_indices = read_in_word_index(return_scaled_count)
 
@@ -192,6 +198,11 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   if display_progress:
     print 'Read in word indices'
   new_indices = {}
+
+  profile = True
+  if profile:
+    pr = cProfile.Profile()
+    pr.enable()
 
   #count the edges in the file, dimensions of PPMI matrix, and reassign indices.
   for line in f:
@@ -263,6 +274,10 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
 
   used_indices = \
     {value: key for key, value in new_indices.iteritems() if value < max_words}
+
+  if profile:
+    pr.disable()
+    pr.print_stats(sort='time')
 
   return pmi, used_indices
 
@@ -660,31 +675,49 @@ def profile_read_in_function():
 def load_tensor_slices(slices):
   index = 0
   tensor_slices = {}
-  '''
-  #mp.set_start_method('fork')
-  processes = []
-  q = mp.Queue()
-  
-  for slice in slices:
-    p = mp.Process(target=process_helper,args=(index,slice,q))
-    processes.append(p)
-    p.start()
-    index += 1
+  slice_count = len(slices)
 
-  for p in processes:
-    p.join()
-    slice_index, PMI = q.get()
-    tensor_slices[slice_index] = PMI
-  '''
+  #make a thread for each slice
+  threads = [None]* slice_count
 
-  for slice in slices:
-    tensor_slices[index],_ = read_in_pmi(slice)
-    index += 1
+  for i in range(slice_count):
+    threads[i] = threading.Thread(target=process_helper, args=(i,slices[i],
+                                                               tensor_slices))
+  for thread in threads:
+    thread.start()
+
+  for thread in threads:
+    thread.join()
+
   return tensor_slices
 
-def process_helper(slice_index,slice_file,queue):
-  PMI, _ = read_in_pmi(slice_file,max_words=10,display_progress=True)
-  queue.put((slice_index,PMI))
+def test_threads_speed():
+  slices = ['wordPairPMI_2000.csv','wordPairPMI_2001.csv']
+  def f():
+    PMI1,_= read_in_pmi(slices[0],max_words=10,display_progress=True)
+    PMI2, _ = read_in_pmi(slices[1], max_words=10, display_progress=True)
+
+  def g():
+    PMI_k = load_tensor_slices(slices)
+
+  time1 = t.timeit(f)
+  time2 = t.timeit(g)
+
+  print "t1: ",time1," t2:", time2
+
+def process_helper(slice_index,slice_file,dictionary):
+#   print "hello from thread {}".format(slice_index)
+ PMI, _ = read_in_pmi(slice_file,max_words=10,display_progress=True)
+ dictionary[slice_index] = PMI
+
+
+
+def multiprocessing_test():
+  jobs = []
+  for i in range(6):
+    p = mp.Process(target=ps.process_func, name=i+1)
+    jobs.append(p)
+    p.start()
 
 
 '''-----------------------------------------------------------------------------
@@ -704,6 +737,7 @@ def process_helper(slice_index,slice_file,queue):
         the word frequency. 
 -----------------------------------------------------------------------------'''
 def read_in_word_index(include_word_count = False):
+
   f = open(INDEX_WORD_FILE, "r") # formatted as wordId, word, word count
   word_IDs = {}
   for line in f:
