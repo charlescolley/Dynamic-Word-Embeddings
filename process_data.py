@@ -667,29 +667,28 @@ def profile_read_in_function():
     load_tensor_slices(slices)
       This function takes in a list of slices to load into a third order 
       tensor and returns a dictionary of the slices.This function uses a 
-      thread for each slice to improve speed by latency hiding
+      multiprocessing pool in order to load the tensorslices in parallel.
     Input:
       slices - string list
         a list of the files to l
 -----------------------------------------------------------------------------'''
 def load_tensor_slices(slices):
   index = 0
-  tensor_slices = {}
+  tensor_slices = []
   slice_count = len(slices)
 
-  #make a thread for each slice
-  threads = [None]* slice_count
+  p = mp.Pool()
 
-  for i in range(slice_count):
-    threads[i] = threading.Thread(target=process_helper, args=(i,slices[i],
-                                                               tensor_slices))
-  for thread in threads:
-    thread.start()
+  def pool_helper(filename):
+    P, _ = read_in_pmi(filename,display_progress=True)
+    return P
 
-  for thread in threads:
-    thread.join()
+  tensor_slices = map(pool_helper, slices)
+  p.join()
+  p.close()
 
   return tensor_slices
+
 
 def test_threads_speed():
   slices = ['wordPairPMI_2000.csv','wordPairPMI_2001.csv']
