@@ -1,4 +1,15 @@
 import numpy as np
+from math import sqrt
+
+def main():
+  n = 200
+  d = 100
+
+  P = np.random.rand(n,n)
+  U = np.random.rand(n,d)
+  true_result = np.matmul(P, U) - np.matmul(U, np.matmul(U.T, U))
+  result = sym_embedding_grad(U.flatten(), P.flatten())
+  print sum(result - true_result.flatten())
 
 '''-----------------------------------------------------------------------------
    svd_grad_U(P,U,V)
@@ -48,6 +59,51 @@ def svd_grad_U(P, U, V, lambda_1, lambda_2):
 
 
 '''-----------------------------------------------------------------------------
+    sym_embedding_grad(P,U)
+      This function returns the gradient of the function 
+        \|P - UU^T\|_F^2
+      with respect to U. The gradient will be of the form of a flattened 
+      dense n x d matrix.
+    Inputs:
+      U - (nd row major array)
+        the embedding trying to be learned from the input matrix P 
+      P - (nn row major array)
+        the dense matrix to be decomposed into a smaller n x d matrix. May 
+        have complex entries. 
+-----------------------------------------------------------------------------'''
+def sym_embedding_grad(U, P):
+  n = int(sqrt(P.shape[0]))
+  d = int(U.shape[0]/n)
+
+  print n, d
+
+
+  #store gradient in row major format
+  grad_U = np.empty(n*d)
+  UTU_jcol = np.empty(d)
+
+  for j in xrange(d):
+    #compute jth column of UTU
+    for k in xrange(d):
+      UTU_jcol[k] = U[k] * U [j]
+      for l in xrange(1,n):
+        UTU_jcol[k] += U[l * d + k] * U [l * d + j]
+
+    #compute (PU - UUTU)_ij
+    for i in xrange(n):
+      PU_ij = P[i * n] * U[j]
+      for k in xrange(1,n):
+        PU_ij += P[i * n + k] * U[k * d + j]
+
+      UUTU_ij = U[i * d] * UTU_jcol[0]
+      for k in xrange(1,d):
+        UUTU_ij += U[i * d + k] * UTU_jcol[k]
+
+      grad_U[i*d + j] = PU_ij - UUTU_ij  # watch out for loss of precision
+
+  return grad_U
+
+'''-----------------------------------------------------------------------------
     frob_diff_grad(X,A)
       This function returns the gradient of \| X - A\|^2_F with respect to X.
     Which evaluates to -2(X - A). 
@@ -66,3 +122,7 @@ def svd_grad_U(P, U, V, lambda_1, lambda_2):
 def frob_diff_grad(X,A):
   grad_X = 2*(X - A)
   return grad_X
+
+
+if __name__ == "__main__":
+  main()
