@@ -3,6 +3,7 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{verbatim}
+\usepackage{mathtools}
 \DeclareMathOperator*{\argmax}{arg\,max}
 %-----------------------------------------------------------------------------%
 \begin{document}
@@ -87,6 +88,39 @@
    	     (\lbrack \sum_{i_1 \neq i,i_2 \neq j}^{n,d}U^2_{i_1,i_2}\rbrack + U_{ij}^2) = 2\lambda U_{ij}
    	\]
    	
+   	
+   	\newpage 
+   	Let $ P \in \mathbb{R}^{n \times n} $ and $ U \in \mathbb{R}^{n \times d} $ and let $ f = \|P - UU^T\|^2_{F} $
+   	
+   	\begin{align*}
+   	 (\nabla_Uf)_{ij}  
+   	 =& \frac{\partial}{\partial U_{ij}} \|P - UU^T\|^2_{F} = \frac{\partial}{\partial U_{ij}} \sum_{i_1,i_2}^{n,n}
+   	   (P_{i_1,i_2} - \sum_{i_3}U_{i_1,i_3}U^T_{i_3,i_2})^2 \\
+   	 =& \frac{\partial}{\partial U_{ij}}(
+   	   \sum_{i_1 \neq i,i_2}^{n,n}
+   	   (P_{i_1,i_2} - \sum_{i_3}U_{i_1,i_3}U_{i_2,i_3})^2
+   	   + \sum_{i_2}(P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i_2,i_3})^2)\\
+   	 =& \frac{\partial}{\partial U_{ij}}(
+   	 \sum_{i_1,i_2 \neq i}^{n,n}
+   	 (P_{i_1,i_2} - \sum_{i_3}U_{i_1,i_3}U_{i_2,i_3})^2
+   	 + \sum_{i_1 \neq i}(P_{i_1,i} - \sum_{i_3}U_{i_1,i_3}U_{i,i_3})^2\\
+   	 +& \sum_{i_2 \neq i}(P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i_2,i_3})^2) 
+   	 + (P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i,i_3})^2)\\
+   	 =& \frac{\partial}{\partial U_{ij}}(\sum_{i_1 \neq i}(P_{i_1,i} - \sum_{i_3}U_{i_1,i_3}U_{i,i_3})^2
+   	 + \sum_{i_2 \neq i}(P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i_2,i_3})^2 
+   	 + (P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i,i_3})^2)\\
+   	 =& \sum_{i_1 \neq i}2(P_{i_1,i} - \sum_{i_3}U_{i_1,i_3}U_{i,i_3})(-U_{i_1,j})
+   	 + \sum_{i_2 \neq i}2(P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i_2,i_3})(-U_{i_2,j}) \\
+   	 +& 2(P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i,i_3})(-2U_{ij}) \\   	 
+   	 =& \sum_{i_1}2(P_{i_1,i} - \sum_{i_3}U_{i_1,i_3}U_{i,i_3})(-U_{i_1,j})
+   	 + \sum_{i_2}2(P_{i,i_2} - \sum_{i_3}U_{i,i_3}U_{i_2,i_3})(-U_{i_2,j})) \\
+   	 =& \sum_{i_1}2(P - UU^T)_{i_1,i}(-U_{i_1,j})
+   	 + \sum_{i_1}2(P - UU^T)_{i,i_1}(-U_{i_1,j})) \\ 
+   	 (\nabla_U f)=& -2((P - UU^T)^T(U) + (P - UU^T)U) = -2((P-UU^T)^T + (P - UU^T) )U
+   	\end{align*}
+   	
+   	if $ P = P^T$ then we get 
+   	$ \nabla_U f  = -4(P-UU^T)U$
    	\newpage
    	Let $ P \in \mathbb{R}^{n \times n} $, $ U \in \mathbb{R}^{n \times d} $, and $B \in \mathbb{R}^{d \times d} $. Consider the function $ f: \mathbb{R}^{n \times n} \times \mathbb{R}^{n \times d} \times \mathbb{R}^{n \times n} \mapsto \mathbb{R} $ such that 
    	\[ 
@@ -119,10 +153,7 @@
    	\sum_{i_3}^{d}U_{i,i_3}C_{i_3,j} + \sum_{i_4}^{d}C_{j,i_4}U_{i,i_4})  
    	=UC_{i,j} + CU^T_{ji} = UC_{i,j} + UC^T_{i,j}
    	\end{align*}
-   	
-    \begin{align*}
-    	\frac{\partial}{\partial U_{ij}}Tr(UCU^TUCU^T)
-    \end{align*}
+ 
    	Letting $ C = BB^T $
    	\begin{align*}
    		 (\nabla_{U}f)_{ij}
@@ -214,6 +245,35 @@
    		 2(P_{i,i_2} - UCU^T_{i,i_2})(-UC^T_{i_2,j})
    		 \big]\\
    		 &+ 2(P_{i,i} - UCU^T_{i,i})
-   		 (-(UC_{i,j} + CU^T_{j,i}))
+   		 (-(UC_{i,j} + CU^T_{j,i}))\\
+   		 &= \sum_{i_1}^n
+   		 [2(P_{i_1,i} - UCU^T_{i_i,i})(-UC_{i_1,j})]
+   		 -2(5(P - UCU^T)(UC^T))_{i,j}\\
+   		 &+ 2(P_{i,i} - UCU^T_{i,i})
+   		 (-(UC_{i,j} + UC^T_{i,j}))
    		 \end{align*}
+   		 \newpage
+ 		   \begin{align*}
+	 		   &Tr(\partial U, \frac{\partial \|P - UBB^TU^T\|_F^2}{\partial U} = \lim_{\epsilon \rightarrow 0} 
+	 		   \frac{\|P - (U + \partial U)BB^T(U + \partial U)^T\|_F^2 
+	  		   	- \|P - UBB^TU^T\|_F^2}
+	 		   {\epsilon}\\
+	 		   &= \frac{Tr((P - (U + \epsilon\partial U)BB^T(U + \epsilon\partial U)^T)^T
+	 		   	    (P - (U + \epsilon\partial U)BB^T(U + \epsilon\partial U)^T))
+	  		     	- \|P - UBB^TU^T\|_F^2}
+	 		   {\epsilon}\\
+	 		   &= \frac{Tr((P - (U + \epsilon\partial U)BB^T(U + \epsilon\partial U)^T)^T
+	 		   	(P - (U + \epsilon\partial U)BB^T(U + \epsilon\partial U)^T))
+	 		   	- \|P - UBB^TU^T\|_F^2}
+	 		   {\epsilon}\\
+	 		   \text{Note that}\\
+		 	  &(P - (U + \epsilon\partial U)BB^T(U + \epsilon\partial U)^T)^T(P - (U + \epsilon\partial U)BB^T(U + \epsilon\partial U))\\
+		 	  &=(P - UBB^TU^T + \epsilon\partial UBB^TU^T + \epsilon UBB^T\partial U^T+ \epsilon^2 \partial UBB^T\partial U^T)^T\\
+		 	  &(P - (UBB^TU^T + \epsilon\partial UBB^TU^T + \epsilon UBB^T\partial U^T+ \epsilon^2 \partial UBB^T\partial U^T) \\
+		 	  &=P^TP - 
+     \end{align*}
+	 		 
+
+   		 
+   		 
 \end{document}
