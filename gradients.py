@@ -84,9 +84,9 @@ def sym_embedding_grad(U, P):
   for j in xrange(d):
     #compute jth column of UTU
     for k in xrange(d):
-      UTU_jcol[k] = U[k] * U [j]
+      UTU_jcol[k] = np.conj(U[k]) * U [j]
       for l in xrange(1,n):
-        UTU_jcol[k] += U[l * d + k] * U [l * d + j]
+        UTU_jcol[k] += np.conj(U[l * d + k]) * U [l * d + j]
 
     #compute (PU - UUTU)_ij
     for i in xrange(n):
