@@ -7,6 +7,9 @@ import scipy.optimize as opt
 import matplotlib.pyplot as plt
 from functools import reduce
 import gradients as grad
+import multiprocessing as mp
+from ctypes import c_double
+from process_scipts import compute_fft
 from sklearn.decomposition import TruncatedSVD
 #import plotly.offline as py
 #import plotly.graph_objs as go
@@ -514,8 +517,37 @@ def entry_stop_gradients(target, mask):
       algorithm 
 -----------------------------------------------------------------------------'''
 def t_svd(A,k):
+  max_cores = 20
+  n = A[0].shape[0]
+  T = len(A)
+
   A = rotate_tensor(A)
 
+  #shared array must be float64, will be cast to complex128 in processes
+  fft_P = mp.RawArray(c_double,2*n*n*(1 + ceil((T-1)/2)))
+
+  #set up cores to compute the fft along 3rd mode
+  jobs = []
+  core_count = psutil.cpu_count(False)
+  process_count = min(core_count,max_cores)
+
+  slices_per_process = n / process_count
+
+  for i in xrange(process_count):
+    start = i*slices_per_process
+    end = min((i+1)*slices_per_process, n)
+    p = mp.Process(target=compute_fft, name=i + 1,
+                   args=(A[start:end],fft_P,))
+    jobs.append(p)
+    p.start()
+
+  #wait for processes to finish running
+  for p in jobs:
+    p.join()
+
+  #start new set of processes to compute each of the symmetric embeddings
+  jobs = []
+  
 
 
 '''-----------------------------------------------------------------------------
@@ -543,7 +575,6 @@ def rotate_tensor(A):
   #copy all non-zeros into their appropriate place in the rotated matrix
   for k in range(slice_count):
     for ((i,j),value) in A[k].items():
-      print i,j, k
       rotated_A[j][i,k] = value
 
   return rotated_A

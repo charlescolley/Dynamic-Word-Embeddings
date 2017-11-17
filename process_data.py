@@ -14,6 +14,8 @@ import word2vec as w2v
 import pickle
 from functools import reduce
 import multiprocessing as mp
+from multiprocessing.sharedctypes import RawArray
+from ctypes import c_double
 import process_scipts as ps
 import psutil
 import timeit as t
@@ -33,8 +35,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  memory_assess(display=False, file_path=None)
-  #multiprocessing_test()
+  #memory_assess(display=False, file_path=None)
+  multiprocessing_test()
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -755,11 +757,31 @@ def memory_assess(display = False,file_path = None):
     f.close()
 
 def multiprocessing_test():
+
+
   jobs = []
-  for i in range(19):
-    p = mp.Process(target=ps.process_func, name=i+1)
+  cores =  psutil.cpu_count(False)
+  nnz_count = 4
+  random_c = np.random.rand(cores*nnz_count) + np.random.rand(
+    nnz_count*cores)*1j
+
+  for i in range(cores):
+    print "core {} should get: {}"\
+      .format(i,random_c[nnz_count*i:nnz_count*(i+1)])
+
+  shared_mem = RawArray(c_double,random_c.view(np.float64))
+  print random_c.view(np.float64)
+  for i in range(cores):
+    p = mp.Process(target=ps.process_func, name=i+1,args=(shared_mem,
+                                                          nnz_count,))
     jobs.append(p)
     p.start()
+
+  for i in range(len(jobs)):
+    jobs[i].join()
+
+  for elem in shared_mem:
+    print elem
 
 
 '''-----------------------------------------------------------------------------
