@@ -77,7 +77,6 @@ def sym_embedding_grad(U, P):
 
   print n, d
 
-
   #store gradient in row major format
   grad_U = np.empty(n*d)
   UTU_jcol = np.empty(d)

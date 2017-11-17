@@ -15,7 +15,9 @@ import pickle
 from functools import reduce
 import multiprocessing as mp
 import process_scipts as ps
+import psutil
 import timeit as t
+from time import gmtime, strftime
 
 #from memory_profiler import profile
 
@@ -31,11 +33,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  multiprocessing_test()
-  # test_word_embedding()
-  #load_tSNE_word_cloud(2000)
-  #pmi = read_in_pmi() \
-  #  if (len(argv) < 2) else read_in_pmi(argv[1],True)
+  memory_assess(display=False, file_path=None)
+  #multiprocessing_test()
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -709,11 +708,55 @@ def process_helper(slice_index,slice_file,dictionary):
  PMI, _ = read_in_pmi(slice_file,max_words=10,display_progress=True)
  dictionary[slice_index] = PMI
 
+#note defaults to floor in int arithmetic
+def center_print(string,col_width = 80):
 
+  print(string.rjust((col_width + len(string))/2))
+
+'''-----------------------------------------------------------------------------
+    memory_assess(display,file_path)
+      This function writes a short profile of the current available process 
+      in terms of the number of non-zeros in a tensor. 
+    Input:
+      display (optional bool) = False
+        print the results to stdout
+      file_path (optional str)
+        Assumes a valid file path and prints results to a text file. 
+-----------------------------------------------------------------------------'''
+def memory_assess(display = False,file_path = None):
+
+  scale = 1
+  header = \
+    "--------------------------------------------------------------------------------"
+  print header
+  time_string = strftime("%a, %d %b %Y %H:%M:%S ""+0000", gmtime())
+  center_print(time_string)
+  print header
+
+  vm = psutil.virtual_memory()
+  print "free memory:      {}".format(vm.total / scale)
+  print "available memory: {}".format(vm.available / scale)
+  print "free memory:      {}".format(vm.free / scale)
+  print "cached memory:    {}".format(vm.cached / scale)
+  print header
+
+
+  if file_path:
+    f = open(file_path,'a')
+    f.append(header)
+    f.append("log starting at {}".\
+             format(time_string))
+    f.append(header)
+
+  if file_path:
+    vm.available
+
+  if file_path:
+    f.close()
 
 def multiprocessing_test():
   jobs = []
-  for i in range(6):
+  for i in range(19):
     p = mp.Process(target=ps.process_func, name=i+1)
     jobs.append(p)
     p.start()
