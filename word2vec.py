@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from numpy.linalg import lstsq
 from math import log, ceil
 from scipy.sparse.linalg import svds, LinearOperator
 import scipy.sparse as sp
@@ -17,8 +18,9 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  A = make_test_tensor()
-  rotate_tensor(A)
+  tf_least_squares()
+  #A = make_test_tensor()
+  #rotate_tensor(A)
   #scipy_optimizer_test_func()
   #test_function()
 #  slices = []
@@ -46,7 +48,6 @@ def make_test_tensor():
         val += 1
 
   return A
-
 
 '''-----------------------------------------------------------------------------
    svd_embedding(pmi, k):
@@ -547,7 +548,7 @@ def t_svd(A,k):
 
   #start new set of processes to compute each of the symmetric embeddings
   jobs = []
-  
+
 
 
 '''-----------------------------------------------------------------------------

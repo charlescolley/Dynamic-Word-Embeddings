@@ -122,6 +122,41 @@ def frob_diff_grad(X,A):
   grad_X = 2*(X - A)
   return grad_X
 
+def tf_least_squares():
+  n = 10
+  m = 10
+
+  A = np.random.rand(n,m)
+  b = np.random.rand(n,1)
+
+  A_row = tf.placeholder(dtype=tf.float64)
+  b_i = tf.placeholder(dtype=tf.float64)
+  x = tf.get_variable("x", initializer=np.ones([m,1]))
+
+  loss_func = tf.reduce_sum(tf.square(b - tf.tensordot(A_row,x,1)))
+
+  optimizer = tf.train.GradientDescentOptimizer(.01)
+  train = optimizer.minimize(loss_func)
+
+  with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+
+    shuffling = np.random.choice(range(n),n,replace=False)
+
+    for i in xrange(100000):
+      j = i % n#shuffling[i % n]
+      sess.run(train,feed_dict={A_row: A,b_i:b})
+
+    print "A:",A
+    print "b:",b
+    x_true = lstsq(A,b)[0]
+    print "true sol:", x_true
+    print "tf sol  :",sess.run(x)
+    print "norm of diff: ", np.linalg.norm(x_true - sess.run(x))
+
+
+
+
 
 if __name__ == "__main__":
   main()
