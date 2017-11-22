@@ -1,7 +1,12 @@
 import numpy as np
 from math import sqrt
+import tensorflow as tf
+from numpy.linalg import lstsq
+
 
 def main():
+  tf_least_squares()
+  '''
   n = 200
   d = 100
 
@@ -10,6 +15,8 @@ def main():
   true_result = np.matmul(P, U) - np.matmul(U, np.matmul(U.T, U))
   result = sym_embedding_grad(U.flatten(), P.flatten())
   print sum(result - true_result.flatten())
+  '''
+
 
 '''-----------------------------------------------------------------------------
    svd_grad_U(P,U,V)
@@ -129,13 +136,14 @@ def tf_least_squares():
   A = np.random.rand(n,m)
   b = np.random.rand(n,1)
 
+#  i = tf.placeholder(dtype=tf.int32)
   A_row = tf.placeholder(dtype=tf.float64)
   b_i = tf.placeholder(dtype=tf.float64)
   x = tf.get_variable("x", initializer=np.ones([m,1]))
 
-  loss_func = tf.reduce_sum(tf.square(b - tf.tensordot(A_row,x,1)))
+  loss_func = tf.square(b_i - tf.tensordot(A_row,x,1))
 
-  optimizer = tf.train.GradientDescentOptimizer(.01)
+  optimizer = tf.train.GradientDescentOptimizer(.001)
   train = optimizer.minimize(loss_func)
 
   with tf.Session() as sess:
@@ -143,9 +151,9 @@ def tf_least_squares():
 
     shuffling = np.random.choice(range(n),n,replace=False)
 
-    for i in xrange(100000):
+    for i in xrange(1000):
       j = i % n#shuffling[i % n]
-      sess.run(train,feed_dict={A_row: A,b_i:b})
+      sess.run(train,feed_dict={A_row: A[j,:],b_i:b[j]})
 
     print "A:",A
     print "b:",b

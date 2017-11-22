@@ -18,7 +18,7 @@ def shuchins_pytorch_demo():
   y = A.mm(x0)
 
   x = Variable(torch.randn(N, 1).type(dtype), requires_grad=True)
-  learning_rate = 0.001
+  learning_rate = 0.01
   for t in range(1000):
     i = random.randint(0, M-1)  # picking a random row from A
     a1 = A[i,:]
@@ -28,7 +28,7 @@ def shuchins_pytorch_demo():
     print (t,loss.data)
     loss.backward()
     x.data -= learning_rate * x.grad.data
-    # learning_rate = 0.001 / (t + 1)
+   # learning_rate = 0.001 / (t + 1)
     x.grad.data.zero_()
 
 

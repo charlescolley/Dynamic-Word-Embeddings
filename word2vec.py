@@ -18,18 +18,18 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  tf_least_squares()
-  #A = make_test_tensor()
-  #rotate_tensor(A)
-  #scipy_optimizer_test_func()
-  #test_function()
-#  slices = []
- # tensorflow_embedding([sp.random(5,5,density=.6,format="dok"),
-  #                      sp.random(5,5,density=.6,format="dok")],
-  #lambda1=.01, d=2, batch_size=5, iterations=100)
- #tensorflow_SGD_test(sp.random(5,5,density=.6,format="dok"),.01,d=5,
-  #                    batch_size=10,iterations=1)
-  #tensorflow_SGD(sp.random(10,10,density=1,format="dok"), d=5, batch_size=3)
+  '''
+  A = np.random.rand(5,5)
+  P = tf.constant(A,dtype=tf.float32)
+
+  s = tf.Session()
+  s.run(tf.global_variables_initializer())
+
+  print s.run(P)
+  print s.run(tf_submatrix(P,[0,1],[1,2]))
+'''
+  test_function()
+
 
 def make_test_tensor():
   n = 2
@@ -344,14 +344,18 @@ def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
     lambda_1 = tf.constant(lambda1,name="lambda_1")
     U = tf.get_variable("U",initializer=tf.random_uniform([n,d], -0.1, 0.1))
     B = tf.get_variable("B",initializer=tf.ones([d,d]))
-    PMI = tf.sparse_placeholder(tf.float32)
+    i = tf.placeholder(dtype=tf.int32)
+    j = tf.placeholder(dtype=tf.int32)
+    PMI = tf.sparse_placeholder(tf.float64)
+    UB_i = tf.matmul(tf.gather(U,i),B)
+    BTUT_j = tf.matmul(B,tf.gather(U,j),adjoint_a=True,adjoint_b=True)
     #PMI = tf.SparseTensor(indices=P.keys(),values=P.values(),dense_shape=[n,n])
-    UB = tf.matmul(U,B)
-    svd_term = tf.norm(tf.sparse_add(PMI,tf.matmul(-1 * UB, UB,\
-                                                          transpose_b=True)))
-    fro_1 = tf.multiply(lambda_1, tf.norm(U))
+    svd_term = tf.square(tf.sparse_add(PMI,tf.matmul(-1 * UB_i, BTUT_j)))
+    fro_1 = tf.multiply(lambda_1, tf.norm(tf.gather(U,j)))
+    fro_2 = tf.multiply(lambda_1, tf.norm(tf.gather(U,i)))
 
-    loss = svd_term + fro_1
+
+    loss = svd_term + fro_1 + fro_2
     if results_file:
       tf.summary.scalar('loss',loss)
       tf.summary.tensor_summary("U",U)
@@ -378,8 +382,8 @@ def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
       if (i % 5 == 0):
         writer.add_summary(sess.run(merged_summary),i)
     indices = np.random.choice(range(n),1,replace=False)
-    sess.run()
     print "before:", sess.run(U)
+    sess.run(train)
     print "after: ", sess.run(U)
 
     sess.run(train)
@@ -387,21 +391,89 @@ def tensorflow_SGD_test(P, lambda1, d, batch_size, iterations,
   U_res,B_res = sess.run([U,B])
   return U_res, B_res
 
-def test_function():
-  sess = tf.Session()
 
-  np_b = np.random.rand(5)
+def tf_submatrix(P,i_indices, j_indices):
+ return tf.map_fn(lambda x: tf.gather(x, j_indices), tf.gather(P, i_indices))
 
-  a = tf.get_variable("a",initializer=tf.random_uniform([4,4]))
-  b = tf.get_variable("b", initializer=tf.random_uniform([2, 2]))
+def test_function(results_file = None):
+  n = 10
+  d = 5
+  record_frequency = 5
+  batch_size = 2
+  regularizer = .001
+  steps = 10000
 
-  init = tf.global_variables_initializer()
-  sess.run(init)
+  B = sp.random(n,d,density=.3,format= 'dok')
+  A = (B * B.T).asformat('dok')
 
-  print "a", sess.run(a)
-  print "b", sess.run(b)
+  if results_file:
+    writer = tf.summary.FileWriter(results_file)
+  with tf.Session() as sess:
+    with tf.name_scope("loss_func"):
+      U = tf.get_variable("U",dtype=tf.float32,initializer=tf.random_uniform([n,d]))
+      #B = tf.get_variable("B",dtype=tf.float32,initializer=tf.random_uniform([d,
+      # d]))
+      P = tf.sparse_placeholder(dtype=tf.float32,shape=[batch_size,batch_size])
 
-  print "slice multiplied", sess.run(tf.matmul(a[:,:2],b))
+      i = tf.placeholder(dtype=tf.int32,shape=[batch_size,])
+      j = tf.placeholder(dtype=tf.int32,shape=[batch_size,])
+
+
+      loss_ij = tf.reduce_sum(tf.square(
+        tf.sparse_add(P,tf.matmul(tf.gather(U,i),tf.gather(U,j),
+                                    transpose_b=True))))
+
+      loss_ij_on_nil = tf.reduce_sum(tf.square(
+        tf.matmul(tf.gather(U,i),tf.gather(U,j), transpose_b=True)))
+
+      reg_U = regularizer * tf.reduce_sum(tf.square(U))
+
+      total_loss = loss_ij + reg_U
+      total_loss_on_nil = loss_ij_on_nil + reg_U
+
+      if results_file:
+          tf.summary.scalar('loss',total_loss)
+          tf.summary.scalar('loss_on_nil',total_loss_on_nil)
+          tf.summary.tensor_summary("U",U)
+
+    with tf.name_scope("train"):
+      optimizer = tf.train.AdamOptimizer(.001)
+      train = optimizer.minimize(total_loss)
+      train_on_nil = optimizer.minimize(total_loss_on_nil)
+
+    if results_file:
+      writer.add_graph(sess.graph)
+      merged_summary = tf.summary.merge_all()
+
+
+    init = tf.global_variables_initializer()
+    sess.run(init)
+
+    for step in range(steps):
+      if results_file:
+        if not step % record_frequency:
+          writer.add_summary(sess.run(merged_summary), step)
+
+      tf_i = np.random.choice(n,size=batch_size,replace=False)
+      tf_j = np.random.choice(n,size=batch_size,replace=False)
+
+      sub_matrix_P = A[tf_i][:,tf_j]
+
+      #switches to different loss function if
+      if sub_matrix_P.nnz:
+        sess.run(train,feed_dict =
+        {P: (sub_matrix_P.keys(),sub_matrix_P.values(),[batch_size,batch_size]),
+         i: tf_i, j: tf_j})
+      else:
+        sess.run(train_on_nil, feed_dict={i: tf_i, j: tf_j})
+
+
+
+    print "P:",A
+    print "UU^T:",np.dot(U_res,U_res.T)
+    print "diff:",A - np.dot(U_res,U_res.T)
+
+
 
 def frobenius_diff(A, B, C):
   return tf.reduce_sum((tf.sparse_add(A,tf.matmul(B, C,transpose_b=True)))** 2)
