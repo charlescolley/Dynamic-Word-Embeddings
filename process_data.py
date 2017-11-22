@@ -373,9 +373,10 @@ def word_embedding_arithmetic(embedding, indices, k):
 def test_tensorflow():
   years = [2000,2001]
   iterations = 1000
-  lambda1 = -1.0
-  lambda2 = -1.0
-  d = 50
+  lambda1 = -1.0   # U regularizer
+  lambda2 = -1.0   # B regularizer
+  d = 150
+  batch_size = 1000
   cwd = os.getcwd()
   slices = []
   # check if places for tf_embeddings exist
@@ -401,15 +402,16 @@ def test_tensorflow():
 
     slices.append(PMI)
 
+  name = name + "_iterations_" + str(iterations) + \
+         "_lambda1_" + str(lambda1) + \
+         "_batch_size_" + str(batch_size) + \
+         "_dimensions_" + str(d) + "_"
   embedding_algo_start_time = clock()
+  U_res = w2v.tf_random_batch_process(P,lambda1,d, batch_size,iterations,
+                            results_file = name)
   U_res, B = w2v.tensorflow_embedding(slices,lambda1,lambda2,d,iterations, \
                                       display_progress=True)
   run_time = clock() - embedding_algo_start_time
-  name = "test_test_test"
-  name = name + "_iterations_" + str(iterations) + \
-               "_lambda1_" + str(lambda1) + \
-               "_lambda2_" + str(lambda2) + \
-               "_dimensions_" + str(d) +  "_"
 
   #save the embeddings
   np.save("tf_embedding/" + name + "tfU.npy", U_res)
