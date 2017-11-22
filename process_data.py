@@ -404,13 +404,12 @@ def test_tensorflow():
 
   name = name + "_iterations_" + str(iterations) + \
          "_lambda1_" + str(lambda1) + \
+         "_lambda2_" + str(lambda2) + \
          "_batch_size_" + str(batch_size) + \
          "_dimensions_" + str(d) + "_"
   embedding_algo_start_time = clock()
-  U_res = w2v.tf_random_batch_process(P,lambda1,d, batch_size,iterations,
+  U_res,B = w2v.tf_random_batch_process(P,lambda1,d, batch_size,iterations,
                             results_file = name)
-  U_res, B = w2v.tensorflow_embedding(slices,lambda1,lambda2,d,iterations, \
-                                      display_progress=True)
   run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
@@ -420,7 +419,8 @@ def test_tensorflow():
   print "saved embeddings"
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
-                'lambda2':lambda2,'dimensions':d, 'run_time':run_time}
+                'lambda2':lambda2,'dimensions':d, 'run_time':run_time,
+                 'batch_size':batch_size}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
