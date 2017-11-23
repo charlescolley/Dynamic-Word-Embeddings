@@ -460,7 +460,8 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
     U_res = sess.run(U)
     B_res = sess.run(B)
 
-  print "B:", B_res
+  return U_res,B_res
+
 
 
 def frobenius_diff(A, B, C):

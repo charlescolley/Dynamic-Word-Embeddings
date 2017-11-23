@@ -403,7 +403,13 @@ def test_tensorflow():
 
     slices.append(PMI)
 
-  name = name + "_iterations_" + str(iterations) + \
+  if len(years) > 1:
+    year_string = "wordPairPMI_" + str(years[0]) +"_to_"+ str(years[-1])
+  else:
+    year_string = name
+
+
+  name =  year_string + "_iterations_" + str(iterations) + \
          "_lambda1_" + str(lambda1) + \
          "_lambda2_" + str(lambda2) + \
          "_batch_size_" + str(batch_size) + \
