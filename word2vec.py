@@ -339,6 +339,38 @@ def tensorflow_embedding(P_list, lambda1,lambda2, d, iterations,
 def tf_submatrix(P,i_indices, j_indices):
  return tf.map_fn(lambda x: tf.gather(x, j_indices), tf.gather(P, i_indices))
 
+'''-----------------------------------------------------------------------------
+    tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
+                            iterations, results_file)
+      This function uses the tensorflow to compute a shared emebedding along 
+      with a core tensor B in order to embedd the data in the list of PMI 
+      matrices into a d dimensional real space.
+    Inputs:
+      P_slices -(n x n sparse dok matrix) list
+        a list of the PMI matrices the embedding will be learned from.
+      lambda1 - (float)
+        the regularization constant multiplied to the frobenius norm of the U 
+        matrix embedding.
+      lambda2 - (float)
+        the regularization constant multiplied to the frobenius norm of the B 
+        matrix embedding.
+      d - (int)
+        the dimensional embedding to be learned.
+      batch_size - (int)
+        a positive integer which must be great than 0, and less than n, 
+        used to chunk up the work of compute the gradients at each step of 
+        the line search method.
+      iterations - (int)
+        the number of iterations to train on.
+      results_file - (optional str)
+        the file location to write the summary files to. Used for running 
+        tensorboard
+    Returns:
+      U_res - (n x d dense matrix)
+        the d dimensional word emebedding 
+      B_res - (T x d x d dense tensor)
+        the d dimensional core tensor of the 2-tucker factorization
+-----------------------------------------------------------------------------'''
 def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
                             iterations,
                             results_file = None):

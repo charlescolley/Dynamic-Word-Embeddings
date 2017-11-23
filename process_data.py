@@ -376,7 +376,8 @@ def test_tensorflow():
   lambda1 = -1.0   # U regularizer
   lambda2 = -1.0   # B regularizer
   d = 150
-  batch_size = 1000
+  max_word_count = 100
+  batch_size = max_word_count/2
   cwd = os.getcwd()
   slices = []
   # check if places for tf_embeddings exist
@@ -397,7 +398,7 @@ def test_tensorflow():
     print file
     name, _ = file.split('.')
 
-    PMI, _ = read_in_pmi(file, display_progress=True)
+    PMI, _ = read_in_pmi(file, display_progress=True,max_words=max_word_count)
     #PMI = sp.random(100, 100, format='dok')
 
     slices.append(PMI)
@@ -408,8 +409,8 @@ def test_tensorflow():
          "_batch_size_" + str(batch_size) + \
          "_dimensions_" + str(d) + "_"
   embedding_algo_start_time = clock()
-  U_res,B = w2v.tf_random_batch_process(P,lambda1,d, batch_size,iterations,
-                            results_file = name)
+  U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
+            iterations,results_file = name)
   run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
