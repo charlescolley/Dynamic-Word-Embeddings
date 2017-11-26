@@ -381,16 +381,20 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
   if results_file:
     writer = tf.summary.FileWriter(results_file)
 
-  with tf.Session() as sess:
+  with tf.Session(config=tf.ConfigProto(
+          device_count = {'GPU': 0}
+          ,intra_op_parallelism_threads=30
+      )) as sess:
     with tf.name_scope("loss_func"):
       U = tf.get_variable("U",dtype=tf.float32,
                           initializer=tf.random_uniform([n,d]))
       B = tf.get_variable("B",dtype=tf.float32,
                           initializer=tf.random_uniform([T, d, d]))
+    
       P = tf.sparse_placeholder(dtype=tf.float32,
-                                       shape=[batch_size, batch_size])
-      i = tf.placeholder(dtype=tf.int32,shape=[batch_size,])
-      j = tf.placeholder(dtype=tf.int32,shape=[batch_size,])
+                                shape=np.array([batch_size, batch_size], dtype=np.int64))
+      i = tf.placeholder(dtype=tf.int32,shape=np.array([batch_size,],dtype=np.int64))
+      j = tf.placeholder(dtype=tf.int32,shape=np.array([batch_size,],dtype=np.int64))
       k = tf.placeholder(dtype=tf.int32)
 
 
@@ -418,7 +422,7 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
         B_summ = tf.summary.tensor_summary("B",B)
 
     with tf.name_scope("train"):
-      optimizer = tf.train.AdamOptimizer(.001)
+      optimizer = tf.train.AdagradOptimizer(.01)
       train = optimizer.minimize(total_loss)
       train_on_nil = optimizer.minimize(total_loss_on_nil)
 
