@@ -371,12 +371,13 @@ def word_embedding_arithmetic(embedding, indices, k):
           print neighbor
 
 def test_tensorflow():
-  years = [2000,2001,2002,2003,2004]
+  years = [2014,2015,2016]
   iterations = 2000
-  lambda1 = .001   # U regularizer
-  lambda2 = .001   # B regularizer
-  d = 150
+  lambda1 = -.01   # U regularizer
+  lambda2 = -.01   # B regularizer
+  d = 100
 #  max_word_count = 100
+  method = 'Adad'
   batch_size = 1000#max_word_count/2
   cwd = os.getcwd()
   slices = []
@@ -413,10 +414,11 @@ def test_tensorflow():
          "_lambda1_" + str(lambda1) + \
          "_lambda2_" + str(lambda2) + \
          "_batch_size_" + str(batch_size) + \
-         "_dimensions_" + str(d) + "_"
+         "_dimensions_" + str(d) + \
+         "_method_" + method
   embedding_algo_start_time = clock()
   U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
-            iterations,results_file = "tf_board/" +name)
+            iterations, method, results_file = "tf_board/" +name)
   run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
@@ -454,10 +456,6 @@ def test_word_embedding():
     elif type == 'svdU':
       subfolder = "svd/"
       postfix = "svdU."
-      get_type = False
-    elif type == 'svdVt':
-      subfolder = "svd/"
-      postfix = "svdVt."
       get_type = False
     elif type == 'tfU':
       subfolder = "tf_embedding/"

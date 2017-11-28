@@ -360,6 +360,19 @@ def tf_submatrix(P,i_indices, j_indices):
         the line search method.
       iterations - (int)
         the number of iterations to train on.
+      method - (string)
+        the choice of optimizer to minimize the objective function with. Each 
+        will be run using the randomized batch chosen at each step. options for
+        the input string include
+          'GD'
+            gradient descent algorithm
+          'Ada'
+            Adagrad algorithm
+          'Adad'
+            Adagrad Delta algorithm
+          'Adam'
+            Adam algorithm
+         Note that currently the parameters for each method will be set
       results_file - (optional str)
         the file location to write the summary files to. Used for running 
         tensorboard
@@ -370,7 +383,7 @@ def tf_submatrix(P,i_indices, j_indices):
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
 def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations,
+                            iterations,method,
                             results_file = None):
   T = len(P_slices)
   n = P_slices[0].shape[0]
@@ -422,7 +435,14 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
         B_summ = tf.summary.tensor_summary("B",B)
 
     with tf.name_scope("train"):
-      optimizer = tf.train.AdagradOptimizer(.01)
+      if method == 'Ada':
+        optimizer = tf.train.AdagradOptimizer(.01)
+      elif method == 'Adad':
+        optimizer = tf.train.AdadeltaOptimizer()
+      elif method == 'Adam':
+        optimizer = tf.train.AdamOptimizer()
+      else:
+        optimizer = tf.train.GradientDescentOptimizer(.01)
       train = optimizer.minimize(total_loss)
       train_on_nil = optimizer.minimize(total_loss_on_nil)
 
