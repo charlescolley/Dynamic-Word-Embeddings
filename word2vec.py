@@ -18,22 +18,20 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  test_file_location = "tf_summary"
-  n = 10
-  d = 5
+  n = 100
+  d = 50
   lambda1 = .001
   lambda2 = .001
-  batch_size = 2
-  iterations = 100000
+  batch_size = 100
+  iterations = 123
 
-  slices = 2
+  slices = 1
   P = []
   for i in xrange(slices):
     B = sp.random(n, d, density=.3, format='dok')
     P.append((B * B.T).asformat('dok'))
 
-  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations, \
-                                             test_file_location)
+  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations)
 
 
 def make_test_tensor():
@@ -377,14 +375,15 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
   T = len(P_slices)
   n = P_slices[0].shape[0]
   record_frequency = 5
+  update_messages = 30
 
   if results_file:
     writer = tf.summary.FileWriter(results_file)
 
   with tf.Session(config=tf.ConfigProto(
-          device_count = {'GPU': 0}
-          ,intra_op_parallelism_threads=30
-      )) as sess:
+                    intra_op_parallelism_threads=30,
+                  log_device_placement=True)) \
+       as sess:
     with tf.name_scope("loss_func"):
       U = tf.get_variable("U",dtype=tf.float32,
                           initializer=tf.random_uniform([n,d]))
@@ -407,6 +406,7 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
 
       loss_ij_on_nil = tf.reduce_sum(tf.square(
         tf.matmul(B_kU_i,B_kU_j, transpose_b=True)))
+
 
 
       reg_U = lambda1 * tf.reduce_sum(tf.square(U))
@@ -433,7 +433,13 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
     init = tf.global_variables_initializer()
     sess.run(init)
 
-    for step in range(iterations):
+    for step in range(1,iterations+1):
+
+      #update user
+      if not (step % (iterations/update_messages)):
+        print "finished {}% steps completed".format(
+          (100*float(step)/iterations))
+
       tf_i = np.random.choice(n,size=batch_size,replace=False)
       tf_j = np.random.choice(n,size=batch_size,replace=False)
       tf_k = np.random.choice(T,size=1)[0]
