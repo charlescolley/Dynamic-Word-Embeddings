@@ -473,8 +473,8 @@ def test_word_embedding():
       #find all tfU files
       files = filter(lambda x: re.match(pattern,x), files)
       print "found the following files"
-      for files in enumerate(files):
-        print files
+      for file in enumerate(files):
+        print file
       get_index = True
       while(get_index):
         index = int(raw_input("Load which file?:"))
@@ -483,6 +483,7 @@ def test_word_embedding():
           get_year = False
         else:
           print "invalid index"
+      print files
       file = files[index]
     else:
       year = raw_input("Which year do you want to load?:")
@@ -509,6 +510,7 @@ def test_word_embedding():
         get_year = False
       
   #load in tSNE file
+  print file
   embedding = np.load(subfolder + file)
 
   if type == "tfU":
