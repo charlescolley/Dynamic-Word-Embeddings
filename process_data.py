@@ -200,7 +200,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
     print 'Read in word indices'
   new_indices = {}
 
-  profile = True
+  profile = False
   if profile:
     pr = cProfile.Profile()
     pr.enable()
@@ -448,7 +448,7 @@ def test_word_embedding():
   get_type = True
   while get_type:
     type = raw_input("Which embedding do you want to load?:\n"
-                     +"tSNE,svdU, svdVt, tfU, tfV\n")
+                     +"tSNE,svdU, tfU\n")
     if type == "tSNE":
       subfolder = "/tSNE/"
       postfix = "svdU_TSNE."
@@ -461,37 +461,52 @@ def test_word_embedding():
       subfolder = "tf_embedding/"
       postfix = ".+tfU."
       get_type = False
-    elif type == 'tfV':
-      subfolder = "tf_embedding/"
-      postfix = ".+tfV."
-      get_type = False
     else:
       print "invalid embedding choice"
 
   get_year = True
   while get_year:
-    year = raw_input("Which year do you want to load?:")
-    pattern = re.compile("[\w]*PMI_" + year + postfix)
-    files = os.listdir(os.getcwd() + '/' + subfolder)
-    file = filter(lambda x: re.match(pattern,x),files )
-    file_count = len(file)
-    if not file:
-      print "year not found, please choose from the available year"
-      for f in files:
-        print f
-    elif file_count > 1:
-      print "multiple files found please type in index to choose file"
-      for i in range(file_count):
-        print i, ":", file[i]
-      index = int(raw_input("select index 0 - "+str(file_count-1) + '\n'))
-      if index > file_count or index < 0:
-        print "invalid selection"
-      else:
-        file = file[index]
-        get_year = False
+
+    if subfolder == "tf_embedding/":
+      pattern = re.compile(".*tfU.*")
+      files = os.listdir(os.getcwd() + '/' + subfolder)
+      #find all tfU files
+      files = filter(lambda x: re.match(pattern,x), files)
+      print "found the following files"
+      for files in enumerate(files):
+        print files
+      get_index = True
+      while(get_index):
+        index = int(raw_input("Load which file?:"))
+        if (index >= 0) and (index < len(files)):
+          get_index = False
+          get_year = False
+        else:
+          print "invalid index"
+      file = files[index]
     else:
-      file = file[0]
-      get_year = False
+      year = raw_input("Which year do you want to load?:")
+      pattern = re.compile("[\w]*PMI_" + year + postfix)
+      files = os.listdir(os.getcwd() + '/' + subfolder)
+      file = filter(lambda x: re.match(pattern,x),files )
+      file_count = len(file)
+      if not file:
+        print "year not found, please choose from the available year"
+        for f in files:
+          print f
+      elif file_count > 1:
+        print "multiple files found please type in index to choose file"
+        for i in range(file_count):
+          print i, ":", file[i]
+        index = int(raw_input("select index 0 - "+str(file_count-1) + '\n'))
+        if index > file_count or index < 0:
+          print "invalid selection"
+        else:
+          file = file[index]
+          get_year = False
+      else:
+        file = file[0]
+        get_year = False
       
   #load in tSNE file
   embedding = np.load(subfolder + file)
@@ -502,29 +517,64 @@ def test_word_embedding():
       B_file = list(file) #loads the B tensor TODO: Make this more robust
       B_file[-5] = 'B'
       core_tensor = np.load(subfolder + "".join(B_file))
-      vals, vecs = np.linalg.eigh(core_tensor)
-      print vals
-      embedding = np.dot(embedding, map(lambda x: sqrt(x),vals) * vecs)
 
-  normalize(embedding)
   n = embedding.shape[0]
-  #load indices
-  pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
-  files =  os.listdir(os.getcwd() + "/wordIDs")
-  IDs_file = filter(lambda x: re.match(pattern, x),files)
-  with open("wordIDs/" + IDs_file[0], 'rb') as handle:
-    indices = pickle.load(handle)
-  #flip the indices
-  indices = {value: key for key, value in indices.iteritems()}
-  get_k = True
-  while get_k:
-    k = int(raw_input("How many nearest neighbors do you want? "))
-    if k < 0 or k > n:
-      print "invalid choice of k= {}, must be postive and less than {}".format(k,n)
-    else:
-      get_k = False
 
-  word_embedding_arithmetic(embedding, indices, k)
+  #need to load in multiple ID_dictionaries if loading tf_embeddings
+  if subfolder == "tf_embedding/":
+    #find years associated with embedding
+    start_year = file[12:16]
+    end_year = file[20:24]
+
+    load_new_year = True
+    while load_new_year:
+      print "choose year, enter \"quit\" to quit"
+      year = raw_input("which year do you want to run? Choose from {} to {"
+                       "}: ".format(start_year,end_year))
+      if year =="quit":
+        load_new_year = False
+      else:
+        pattern = re.compile("[\w]*PMI_" + year + "wordIDs" + ".")
+        files = os.listdir(os.getcwd() + "/wordIDs")
+        IDs_file = filter(lambda x: re.match(pattern, x), files)
+        with open("wordIDs/" + IDs_file[0], 'rb') as handle:
+          indices = pickle.load(handle)
+        indices = {value: key for key, value in indices.iteritems()}
+
+        #form embedding
+        core_tensor_index = int(year) - int(start_year)
+        new_embedding = np.dot(embedding,core_tensor[core_tensor_index])
+        normalize(new_embedding)
+
+        get_k = True
+        while get_k:
+          k = int(raw_input("How many nearest neighbors do you want? "))
+          if k < 0 or k > n:
+            print "invalid choice of k= {}, must be postive and less than {}".format(
+              k, n)
+          else:
+            get_k = False
+        word_embedding_arithmetic(new_embedding, indices, k)
+
+
+  else:
+    #load indices
+    pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
+    files =  os.listdir(os.getcwd() + "/wordIDs")
+    IDs_file = filter(lambda x: re.match(pattern, x),files)
+    with open("wordIDs/" + IDs_file[0], 'rb') as handle:
+      indices = pickle.load(handle)
+    #flip the indices
+    indices = {value: key for key, value in indices.iteritems()}
+    get_k = True
+    while get_k:
+      k = int(raw_input("How many nearest neighbors do you want? "))
+      if k < 0 or k > n:
+        print "invalid choice of k= {}, must be postive and less than {}".format(k,n)
+      else:
+        get_k = False
+    normalize(embedding)
+    word_embedding_arithmetic(embedding, indices, k)
 
 '''-----------------------------------------------------------------------------
     normalize(embedding,mode)
