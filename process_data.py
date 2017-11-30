@@ -35,8 +35,9 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
+  plot_B_spectrums()
   #memory_assess(display=False, file_path=None)
-  multiprocessing_test()
+  #multiprocessing_test()
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -379,6 +380,7 @@ def test_tensorflow():
 #  max_word_count = 100
   method = 'Adad'
   batch_size = 1000#max_word_count/2
+  thread_count = 1
   cwd = os.getcwd()
   slices = []
   # check if places for tf_embeddings exist
@@ -415,7 +417,8 @@ def test_tensorflow():
          "_lambda2_" + str(lambda2) + \
          "_batch_size_" + str(batch_size) + \
          "_dimensions_" + str(d) + \
-         "_method_" + method
+         "_thread_count_" + str(thread_count) + \
+         "_method_" + method + '_'
   embedding_algo_start_time = clock()
   U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
             iterations, method, results_file = "tf_board/" +name)
@@ -429,10 +432,39 @@ def test_tensorflow():
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
                 'lambda2':lambda2,'dimensions':d, 'run_time':run_time,
-                 'batch_size':batch_size}
+                 'batch_size':batch_size, 'thread_count':thread_count}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
+
+
+'''-----------------------------------------------------------------------------
+    plot_B_spectrums()
+      This function is creates a plot of the eigenvalues of all the core 
+      tensors produced by tensorflow. Note that this function must be run 
+      in the folder containing the B matrix numpy files. 
+-----------------------------------------------------------------------------'''
+def plot_B_spectrums():
+
+  #find all the tfB files
+  pattern = re.compile(".*tfB.*")
+  files = filter(lambda x: re.match(pattern,x),os.listdir("."))
+
+  B_tensor_eigenvalues = []
+  for B_file in files:
+    B = np.load(B_file)
+    slice_vals = []
+    for slice in B:
+      vals, _ = np.linalg.eig(np.dot(slice,slice.T))
+      slice_vals.append(vals)
+    B_tensor_eigenvalues.append(slice_vals)
+
+
+
+  for slice in B_tensor_eigenvalues[-1]:
+    plt.semilogy(sorted(slice))
+  plt.title(files[-1])
+  plt.show()
 
 
 #todo: REMOVE WORDS IN INITIAL LIST FROM RESULTS
@@ -483,7 +515,6 @@ def test_word_embedding():
           get_year = False
         else:
           print "invalid index"
-      print files
       file = files[index]
     else:
       year = raw_input("Which year do you want to load?:")

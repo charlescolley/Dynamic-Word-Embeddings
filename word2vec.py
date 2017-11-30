@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from time import clock
 from numpy.linalg import lstsq
 from math import log, ceil
 from scipy.sparse.linalg import svds, LinearOperator
@@ -11,6 +12,7 @@ import gradients as grad
 import multiprocessing as mp
 from ctypes import c_double
 from process_scipts import compute_fft
+import os
 from sklearn.decomposition import TruncatedSVD
 #import plotly.offline as py
 #import plotly.graph_objs as go
@@ -18,21 +20,22 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  n = 100
+  n = 10000
   d = 50
   lambda1 = .001
   lambda2 = .001
   batch_size = 100
-  iterations = 123
-
+  iterations = 1
+  thread_count = 1
   slices = 1
   P = []
   for i in xrange(slices):
     B = sp.random(n, d, density=.3, format='dok')
     P.append((B * B.T).asformat('dok'))
 
-  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations)
-
+  embedding_algo_start_time = clock()
+  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations,thread_count)
+  print "run time of operation = {}s".format(clock() - embedding_algo_start_time)
 
 def make_test_tensor():
   n = 2
@@ -373,6 +376,9 @@ def tf_submatrix(P,i_indices, j_indices):
           'Adam'
             Adam algorithm
          Note that currently the parameters for each method will be set
+      thread_count - (optional int)
+        the number of threads/cores to run the tensorflow computational graph 
+        with. Default is 1.
       results_file - (optional str)
         the file location to write the summary files to. Used for running 
         tensorboard
@@ -383,19 +389,22 @@ def tf_submatrix(P,i_indices, j_indices):
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
 def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations,method,
+                            iterations,method,thread_count = 1,
                             results_file = None):
   T = len(P_slices)
   n = P_slices[0].shape[0]
   record_frequency = 5
   update_messages = 30
 
+  #ignore gpuS
+  os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+
   if results_file:
     writer = tf.summary.FileWriter(results_file)
 
   with tf.Session(config=tf.ConfigProto(
-                    intra_op_parallelism_threads=30,
-                  log_device_placement=True)) \
+                    intra_op_parallelism_threads=thread_count,
+                  log_device_placement=False)) \
        as sess:
     with tf.name_scope("loss_func"):
       U = tf.get_variable("U",dtype=tf.float32,
@@ -462,7 +471,7 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
 
       tf_i = np.random.choice(n,size=batch_size,replace=False)
       tf_j = np.random.choice(n,size=batch_size,replace=False)
-      tf_k = np.random.choice(T,size=1)[0]
+      tf_k = 0 if T == 1 else np.random.choice(T,size=1)[0]
       sub_matrix_P = (P_slices[tf_k])[tf_i][:,tf_j]
 
       #switches to different loss function if sparse tensor is empty
