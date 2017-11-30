@@ -25,8 +25,8 @@ def main():
   lambda1 = .001
   lambda2 = .001
   batch_size = 100
-  iterations = 1
-  thread_count = 1
+  iterations = 10
+  method = 'Adam'
   slices = 1
   P = []
   for i in xrange(slices):
@@ -34,7 +34,7 @@ def main():
     P.append((B * B.T).asformat('dok'))
 
   embedding_algo_start_time = clock()
-  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations,thread_count)
+  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations, method, thread_count)
   print "run time of operation = {}s".format(clock() - embedding_algo_start_time)
 
 def make_test_tensor():
@@ -342,7 +342,7 @@ def tf_submatrix(P,i_indices, j_indices):
 
 '''-----------------------------------------------------------------------------
     tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations, results_file)
+                            iterations, method, results_file)
       This function uses the tensorflow to compute a shared emebedding along 
       with a core tensor B in order to embedd the data in the list of PMI 
       matrices into a d dimensional real space.
@@ -376,9 +376,6 @@ def tf_submatrix(P,i_indices, j_indices):
           'Adam'
             Adam algorithm
          Note that currently the parameters for each method will be set
-      thread_count - (optional int)
-        the number of threads/cores to run the tensorflow computational graph 
-        with. Default is 1.
       results_file - (optional str)
         the file location to write the summary files to. Used for running 
         tensorboard
@@ -389,21 +386,20 @@ def tf_submatrix(P,i_indices, j_indices):
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
 def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations,method,thread_count = 1,
+                            iterations,method,
                             results_file = None):
   T = len(P_slices)
   n = P_slices[0].shape[0]
   record_frequency = 5
-  update_messages = 30
+  update_messages = 1
 
-  #ignore gpuS
+  #ignore gpus
   os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
 
   if results_file:
     writer = tf.summary.FileWriter(results_file)
 
   with tf.Session(config=tf.ConfigProto(
-                    intra_op_parallelism_threads=thread_count,
                   log_device_placement=False)) \
        as sess:
     with tf.name_scope("loss_func"):

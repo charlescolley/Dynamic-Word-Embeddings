@@ -380,7 +380,6 @@ def test_tensorflow():
 #  max_word_count = 100
   method = 'Adad'
   batch_size = 1000#max_word_count/2
-  thread_count = 1
   cwd = os.getcwd()
   slices = []
   # check if places for tf_embeddings exist
@@ -417,11 +416,10 @@ def test_tensorflow():
          "_lambda2_" + str(lambda2) + \
          "_batch_size_" + str(batch_size) + \
          "_dimensions_" + str(d) + \
-         "_thread_count_" + str(thread_count) + \
          "_method_" + method + '_'
   embedding_algo_start_time = clock()
   U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
-            iterations, method, results_file = "tf_board/" +name)
+            iterations, method)
   run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
@@ -432,7 +430,7 @@ def test_tensorflow():
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
                 'lambda2':lambda2,'dimensions':d, 'run_time':run_time,
-                 'batch_size':batch_size, 'thread_count':thread_count}
+                 'batch_size':batch_size}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
