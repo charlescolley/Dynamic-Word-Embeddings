@@ -517,7 +517,7 @@ def test_tensorflow():
          "_method_" + method + '_'
   embedding_algo_start_time = clock()
   U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
-            iterations, method, results_file = "tf_board/" +name)
+            iterations, method)
   run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
