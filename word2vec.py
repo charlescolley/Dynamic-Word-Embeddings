@@ -342,7 +342,7 @@ def tf_submatrix(P,i_indices, j_indices):
 
 '''-----------------------------------------------------------------------------
     tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations, results_file)
+                            iterations, method, thread_count,results_file)
       This function uses the tensorflow to compute a shared emebedding along 
       with a core tensor B in order to embedd the data in the list of PMI 
       matrices into a d dimensional real space.
@@ -389,7 +389,7 @@ def tf_submatrix(P,i_indices, j_indices):
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
 def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations,method,thread_count = 1,
+                            iterations,method,
                             results_file = None):
   T = len(P_slices)
   n = P_slices[0].shape[0]
@@ -403,7 +403,7 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
     writer = tf.summary.FileWriter(results_file)
 
   with tf.Session(config=tf.ConfigProto(
-                    intra_op_parallelism_threads=thread_count,
+                    intra_op_parallelism_threads=1,
                   log_device_placement=False)) \
        as sess:
     with tf.name_scope("loss_func"):
@@ -501,7 +501,44 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
 
   return U_res,B_res
 
+'''-----------------------------------------------------------------------------
+    evaluate_embedding(U.B,lambda1,lambda2,years)
+      This function takes in a computed U and B from a given run and returns 
+      the value of the loss function at that point and the Frobenius norm of 
+      the Jacobian. This function sets up a tensorflow computation graph to 
+      compute both. This function must be run in the main folder with all the 
+      PMI matrices in order to have access to all the relevant files. 
+    Input:
+      U - (n x d dense matrix)
+        the shared embedding U
+      B - (d x d dense matrix)
+        the core tensor slices 
+      lambda1 - (float)
+        the regularizer term of U
+      lambda2 - (float)
+        the regularizer term for B
+      years  - (int list)
+        a list of years that the embedding is for.
+    Returns:
+      loss_func_val -(float)
+        the value of the loss function
+      jacobian_norm -(float)
+        the frobenius norm of the jacobian
+-----------------------------------------------------------------------------'''
+def evaluate_embedding(U,B,lambda1,lambda2, years):
 
+  #load in the relevant time slices
+  for year in years:
+    file = "wordPairPMI_" + str(year) + ".csv"
+    PMI, _ = pd.read_in_pmi(file)
+
+
+
+  with tf.Session() as sess:
+    tf_U = tf.get_variable("U",initializer=U)
+    tf_B = tf.get_variable("B",initializer=B)
+
+    tf_P = tf.sparse_placeholder(shape=[])
 
 def frobenius_diff(A, B, C):
   return tf.reduce_sum((tf.sparse_add(A,tf.matmul(B, C,transpose_b=True)))** 2)
