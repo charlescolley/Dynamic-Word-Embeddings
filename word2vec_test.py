@@ -1,5 +1,6 @@
 import pytest
 import word2vec as w2v
+import process_data as pd
 import gradients as grad
 import numpy as np
 
@@ -57,3 +58,37 @@ class TestClass:
 
 
 
+
+
+def normalize_wordIDs_test()
+  A = sp.dok_matrix((5, 5))
+  B = sp.dok_matrix((5, 5))
+
+  A_dict = {'e': 0, 'a': 1, 'b': 2, 'c': 3, 'd': 4}
+  B_dict = {'d': 0, 'c': 1, 'b': 2, 'a': 3, 'f': 4}
+
+  A_val = 1
+  B_val = 25
+  for i in range(5):
+    for j in range(5):
+      A[i, j] = A_val
+      B[i, j] = B_val
+
+      A_val += 1
+      B_val -= 1
+
+  matrix_list = [A, B]
+  dict_list = [A_dict, B_dict]
+
+  print "matrices before"
+  for matrix in matrix_list:
+    print matrix.todense()
+
+  for dict in dict_list:
+    print dict
+
+  final_dict = pd.normalize_wordIDs(matrix_list, dict_list)
+  print "matrices after"
+  for matrix in matrix_list:
+    print matrix.todense()
+  print final_dict

@@ -35,9 +35,39 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  plot_B_spectrums()
-  #memory_assess(display=False, file_path=None)
-  #multiprocessing_test()
+  A = sp.dok_matrix((5,5))
+  B = sp.dok_matrix((5,5))
+
+  A_dict = {'e':0,'a':1,'b':2,'c':3,'d':4}
+  B_dict = {'d':0,'c':1,'b':2,'a':3,'f':4}
+
+  A_val = 1
+  B_val = 25
+  for i in range(5):
+    for j in range(5):
+      A[i,j] = A_val
+      B[i,j] = B_val
+
+      A_val += 1
+      B_val -= 1
+
+  matrix_list = [A,B]
+  dict_list = [A_dict,B_dict]
+
+  print "matrices before"
+  for matrix in matrix_list:
+    print matrix.todense()
+
+  for dict in dict_list:
+    print dict
+
+
+
+  final_dict = normalize_wordIDs(matrix_list,dict_list)
+  print "matrices after"
+  for matrix in matrix_list:
+    print matrix.todense()
+  print final_dict
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -220,7 +250,6 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
               word_indices[context_ID][0]
 
 
-
     if word not in new_indices:
       new_indices[word] = clean_indices
       clean_indices += 1
@@ -310,6 +339,68 @@ def filter_up_to_kth_largest(matrix, k):
     return matrix
 
 '''-----------------------------------------------------------------------------
+    normalize_wordIDs(P_slices, wordIDs)
+        This function takes in a list of PMI matrix slices and their respective 
+      index to word dictionaries and reorders and removes entries in each of 
+      the PMI matrix slices such that the embeddings all share the same words 
+      and are all permuted such that the ith row and columns correspond to the 
+      same word for all the time slices. each time slice will remove any rows 
+      and columns associated with words not in all the time slices.
+    Input:
+      P_slices - (list of square sparse matrices)
+        the relevant PMI matrices to be normalized 
+      wordIDs - (list of dictionaries)
+        the dictionaries linking the words in the PMI matrices to their 
+        respective indices for each time slice. Here the keys are the strings 
+        and the values are the indices.   
+    Returns:
+      shared_wordIDs - (dictionary)
+        the final dictionary linking the indices of all the time slices to 
+        the shared words. Here keys are the indices and values are the strings. 
+    Note:
+      Two obvious improvements will be not truncating the matrices if words 
+      are not shared, but simply moving them to the "end" of the matrix and 
+      letting implicit zeros pad them. Also filtering each matrix up to the 
+      kth largest word may be useful functionality to improve the quality of 
+      the embeddings.
+-----------------------------------------------------------------------------'''
+def normalize_wordIDs(P_slices, wordIDs):
+
+  #find the intersection of all the words
+  common_words = set.intersection(
+                   *map(lambda x: set(x),  #convert to sets
+                    map(lambda x: x.keys(), wordIDs))) #get all words
+
+  first_slice = True
+  #remove all rows and columns for terms not in the common_words set
+  for (t,slice) in enumerate(P_slices):
+
+    if first_slice:
+      valid_indices = map(lambda (_, val): val,
+                          filter(lambda (key, _): key in common_words,
+                                 wordIDs[t].iteritems()))
+      #create shared_wordIDs and remap indices if on first slice
+      word_count= 0
+      shared_wordIDs = {}
+
+      for (key, val) in sorted(wordIDs[0].items(), key=lambda (x, y): y):
+        if key in common_words:
+          shared_wordIDs[word_count] = key
+          word_count += 1
+      first_slice = False
+      P_slices[t] = slice[valid_indices][:, valid_indices]
+    else:
+      #permute to align with the first slice
+      permutation = []
+      for i in xrange(word_count):
+        permutation.append(wordIDs[t][shared_wordIDs[i]])
+      # eliminate invalid rows and columns
+      P_slices[t] = slice[permutation][:, permutation]
+
+
+  return shared_wordIDs
+
+'''-----------------------------------------------------------------------------
     word_embedding_arithmetic()
       This function loads in a given word2vec embedding and will allow you to 
     use addition and subtraction to test the embedding 
@@ -380,9 +471,9 @@ def test_tensorflow():
 #  max_word_count = 100
   method = 'Adad'
   batch_size = 1000#max_word_count/2
-  thread_count = 1
   cwd = os.getcwd()
   slices = []
+  wordIDs = []
   # check if places for tf_embeddings exist
   path = os.path.join(cwd, 'tf_embedding')
   if not os.path.exists(path):
@@ -395,6 +486,7 @@ def test_tensorflow():
 
 
   for year in years:
+    #get PMI matrix
     pattern = re.compile("[\w]*PMI_" + str(year) + ".")
     files = os.listdir(os.getcwd())
     file = filter(lambda x: re.match(pattern, x), files)[0]
@@ -411,13 +503,17 @@ def test_tensorflow():
   else:
     year_string = name
 
+  #align all the tensor slices
+
+
+  normalize_wordIDs(slices,)
+
 
   name =  year_string + "_iterations_" + str(iterations) + \
          "_lambda1_" + str(lambda1) + \
          "_lambda2_" + str(lambda2) + \
          "_batch_size_" + str(batch_size) + \
          "_dimensions_" + str(d) + \
-         "_thread_count_" + str(thread_count) + \
          "_method_" + method + '_'
   embedding_algo_start_time = clock()
   U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
@@ -432,7 +528,7 @@ def test_tensorflow():
   #save the parameters
   parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
                 'lambda2':lambda2,'dimensions':d, 'run_time':run_time,
-                 'batch_size':batch_size, 'thread_count':thread_count}
+                 'batch_size':batch_size}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
