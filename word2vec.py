@@ -296,7 +296,6 @@ def tensorflow_embedding(P_list, lambda1,lambda2, d, iterations,
     PMI = tf.SparseTensor(indices=indices, values=values,
                           dense_shape=[slices, n, n])
 
-
     UB = tf.map_fn(lambda B_k: tf.matmul(U,B_k),B)
     svd_term = tf.norm(tf.sparse_add(PMI,
       tf.map_fn(lambda UB_k: tf.matmul(-1 * UB_k, UB_k, transpose_b=True),UB)))

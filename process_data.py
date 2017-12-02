@@ -35,39 +35,32 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  A = sp.dok_matrix((5,5))
-  B = sp.dok_matrix((5,5))
+  os.chdir('/mnt/hgfs/datasets/wordEmbeddings')
 
-  A_dict = {'e':0,'a':1,'b':2,'c':3,'d':4}
-  B_dict = {'d':0,'c':1,'b':2,'a':3,'f':4}
+  years = [2000, 2001]
+  max_word_count = 100
+  slices = []
+  wordIDs = []
 
-  A_val = 1
-  B_val = 25
-  for i in range(5):
-    for j in range(5):
-      A[i,j] = A_val
-      B[i,j] = B_val
+  for year in years:
+    #get PMI matrix
+    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+    files = os.listdir(os.getcwd())
+    file = filter(lambda x: re.match(pattern, x), files)[0]
+    print file
+    name, _ = file.split('.')
 
-      A_val += 1
-      B_val -= 1
+    PMI, IDs = read_in_pmi(file, display_progress=True,max_words=max_word_count)
+    #PMI = sp.random(100, 100, format='dok')
 
-  matrix_list = [A,B]
-  dict_list = [A_dict,B_dict]
-
-  print "matrices before"
-  for matrix in matrix_list:
-    print matrix.todense()
-
-  for dict in dict_list:
-    print dict
+    slices.append(PMI)
+    wordIDs.append(IDs)
 
 
 
-  final_dict = normalize_wordIDs(matrix_list,dict_list)
-  print "matrices after"
-  for matrix in matrix_list:
-    print matrix.todense()
-  print final_dict
+  final_dict = normalize_wordIDs(slices,wordIDs)
+
+  print "done"
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -304,7 +297,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
 
 
   used_indices = \
-    {value: key for key, value in new_indices.iteritems() if value < max_words}
+    {key:value for key, value in new_indices.iteritems() if value < max_words}
 
   if profile:
     pr.disable()
@@ -376,7 +369,7 @@ def normalize_wordIDs(P_slices, wordIDs):
   for (t,slice) in enumerate(P_slices):
 
     if first_slice:
-      valid_indices = map(lambda (_, val): val,
+      valid_indices = map(lambda (_, value): value,
                           filter(lambda (key, _): key in common_words,
                                  wordIDs[t].iteritems()))
       #create shared_wordIDs and remap indices if on first slice
@@ -395,7 +388,7 @@ def normalize_wordIDs(P_slices, wordIDs):
       for i in xrange(word_count):
         permutation.append(wordIDs[t][shared_wordIDs[i]])
       # eliminate invalid rows and columns
-      P_slices[t] = slice[permutation][:, permutation]
+      P_slices[t] = P_slices[t][permutation][:, permutation]
 
 
   return shared_wordIDs
@@ -463,13 +456,13 @@ def word_embedding_arithmetic(embedding, indices, k):
           print neighbor
 
 def test_tensorflow():
-  years = [2014,2015,2016]
-  iterations = 2000
-  lambda1 = -.01   # U regularizer
-  lambda2 = -.01   # B regularizer
-  d = 100
+  years = [2013,2014,2015,2016]
+  iterations = 1000
+  lambda1 = .01   # U regularizer
+  lambda2 = .01   # B regularizer
+  d = 50
 #  max_word_count = 100
-  method = 'Adad'
+  method = 'Adam'
   batch_size = 1000#max_word_count/2
   cwd = os.getcwd()
   slices = []
@@ -493,10 +486,11 @@ def test_tensorflow():
     print file
     name, _ = file.split('.')
 
-    PMI, _ = read_in_pmi(file, display_progress=True)
+    PMI, IDs = read_in_pmi(file, display_progress=True)
     #PMI = sp.random(100, 100, format='dok')
 
     slices.append(PMI)
+    wordIDs.append(IDs)
 
   if len(years) > 1:
     year_string = "wordPairPMI_" + str(years[0]) +"_to_"+ str(years[-1])
@@ -504,9 +498,7 @@ def test_tensorflow():
     year_string = name
 
   #align all the tensor slices
-
-
-  normalize_wordIDs(slices,)
+  sharedIDs = normalize_wordIDs(slices,wordIDs)
 
 
   name =  year_string + "_iterations_" + str(iterations) + \
@@ -532,6 +524,11 @@ def test_tensorflow():
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
+
+  with open("wordIDs/wordPairPMI_"+ str(years[0]) +
+                '_to_' + str(years[-1]) + 'wordIDs.pickle','wb') as handle:
+    pickle.dump(sharedIDs,handle,protocol=pickle.HIGHEST_PROTOCOL)
+  print "saved IDs"
 
 
 '''-----------------------------------------------------------------------------
