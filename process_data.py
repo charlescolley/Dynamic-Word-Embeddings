@@ -37,8 +37,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 def main():
   os.chdir('/mnt/hgfs/datasets/wordEmbeddings')
 
-  years = [2000, 2001]
-  max_word_count = 100
+  years = [2000,2001]
   slices = []
   wordIDs = []
 
@@ -50,7 +49,7 @@ def main():
     print file
     name, _ = file.split('.')
 
-    PMI, IDs = read_in_pmi(file, display_progress=True,max_words=max_word_count)
+    PMI, IDs = read_in_pmi(file, display_progress=True,max_words=1000)
     #PMI = sp.random(100, 100, format='dok')
 
     slices.append(PMI)
@@ -58,8 +57,9 @@ def main():
 
 
 
-  final_dict = normalize_wordIDs(slices,wordIDs)
-
+  #final_dict = normalize_wordIDs(slices,wordIDs)
+  for slice in slices:
+     print slice.nnz
   print "done"
 
 '''-----------------------------------------------------------------------------
@@ -288,8 +288,6 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
     pmi[edges[i][0], edges[i][1]] = edges[i][2]
     if display_progress:
       edge_count += 1
-      if edge_count > 100:
-        break
       if edge_count % update_frequency == 0:
         print "{}% complete, {} edges read in"\
           .format((edge_count/float(total_edge_count))*100,
@@ -518,7 +516,7 @@ def test_tensorflow():
 
   print "saved embeddings"
   #save the parameters
-  parameters = {'year':year, 'iterations':iterations, 'lambda1':lambda1,
+  parameters = {'years':years, 'iterations':iterations, 'lambda1':lambda1,
                 'lambda2':lambda2,'dimensions':d, 'run_time':run_time,
                  'batch_size':batch_size}
   with open("tf_embedding/" + name + 'tfParams.pickle', 'wb') as handle:
@@ -529,6 +527,63 @@ def test_tensorflow():
                 '_to_' + str(years[-1]) + 'wordIDs.pickle','wb') as handle:
     pickle.dump(sharedIDs,handle,protocol=pickle.HIGHEST_PROTOCOL)
   print "saved IDs"
+
+
+'''-----------------------------------------------------------------------------
+    plot_performance()
+      This function loads in results from different runs of the optimizers to 
+    compare the performance of different choices of hyper-parameters in the 
+    experiments. The hyper parameters to be considered are 
+      -batch_size
+        the size of the mini-batch each iteration is run on 
+      -lambda1
+        the regularizer associated with the shared embedding U
+      -lambda2
+        the regularizer associated with the core tensor B
+      -iterations
+        the number of steps the optimizer is run on.
+      -optimizer
+        the type of line search method used to minimize the objective 
+        function. Current choices are Adam, Adagrad, Adagrad-delta, 
+        and Gradient Descent. Note that all of these methods are being run 
+        with mini batches. 
+    The files loaded in will come from any files in the tf_embedding/ folder 
+    which aren't in any subfolders.
+-----------------------------------------------------------------------------'''
+def plot_performance():
+  #find Param files to plot results for
+  pattern = re.compile(".*tfParams.*")
+  files = filter(lambda x: re.match(pattern,x),os.listdir('./tf_embedding'))
+
+  parameters = []
+  for file in files:
+    with open(file,'r') as handle:
+      param_dict = pickle.load(handle)
+    # check for loss_function and gradient norm values
+    try:
+      param_dict['loss_func_val']
+    except KeyError:
+      #compute loss function for final U and B
+      root_name = file[:file.find('tf')+2]
+      U = np.load(root_name + "U.npy")
+      B = np.load(root_name + "B.npy")
+
+      #find years in the embedding
+      start_point = file.find("PMI_")
+      start_year = int(file[start_point+4: start_point+8])
+      if file[start_point +8:start_point+12] == '_to_':
+        end_year = int(file[start_point+ 12:start_point+16])
+        years = range(start_year,end_year)
+      else:
+        years = [start_year]
+
+      w2v.evaluate_embedding(U,B,param_dict['lambda1'],param_dict['lambda1'],
+                             years)
+
+
+
+
+
 
 
 '''-----------------------------------------------------------------------------

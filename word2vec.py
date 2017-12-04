@@ -523,11 +523,15 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
 def evaluate_embedding(U,B,lambda1,lambda2, years):
 
   #load in the relevant time slices
+  PMI_matrices = []
+  word_IDs = []
   for year in years:
     file = "wordPairPMI_" + str(year) + ".csv"
-    PMI, _ = pd.read_in_pmi(file)
+    PMI, IDs = pd.read_in_pmi(file)
+    PMI_matrices.append(PMI)
+    word_IDs.append(IDs)
 
-
+  pd.normalize_wordIDs(PMI_matrices,IDs)
 
   with tf.Session() as sess:
     tf_U = tf.get_variable("U",initializer=U)
