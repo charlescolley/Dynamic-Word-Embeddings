@@ -6,6 +6,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import cProfile
 import os
+import sys
 import re
 import random
 from scipy.sparse.linalg import svds
@@ -54,8 +55,6 @@ def main():
 
     slices.append(PMI)
     wordIDs.append(IDs)
-
-
 
   #final_dict = normalize_wordIDs(slices,wordIDs)
   for slice in slices:
@@ -453,15 +452,35 @@ def word_embedding_arithmetic(embedding, indices, k):
         for neighbor in neighbors:
           print neighbor
 
-def test_tensorflow():
-  years = [2013,2014,2015,2016]
-  iterations = 1000
-  lambda1 = .01   # U regularizer
-  lambda2 = .01   # B regularizer
+def hyper_param_search():
+  years = [2016]
+  lambda1 = .01  # U regularizer
+  lambda2 = .01  # B regularizer
   d = 50
-#  max_word_count = 100
-  method = 'Adam'
-  batch_size = 1000#max_word_count/2
+  base_batch_size = 1000
+
+  methods = ['GD', 'Ada', 'Adad', 'Adam']
+  batch_size_tests = 4
+  jobs = []
+
+  for method in methods:
+    for i in range(1,batch_size_tests):
+
+      batch_size = base_batch_size ** i
+      iterations = 10**(6 - i)
+      process_name = method +"_" + str(batch_size)
+
+      p = mp.Process(target=test_tensorflow, name=process_name,
+                     args=(iterations, lambda1,lambda2,d,
+                           method,batch_size,years))
+      jobs.append(p)
+      p.start()
+
+  for i in range(len(jobs)):
+    jobs[i].join()
+
+def test_tensorflow(iterations, lambda1,lambda2,d,method,batch_size,years):
+
   cwd = os.getcwd()
   slices = []
   wordIDs = []
@@ -470,11 +489,20 @@ def test_tensorflow():
   if not os.path.exists(path):
     os.makedirs(path)
 
+  '''
   #check if places for tf_board existt
   path = os.path.join(cwd, 'tf_board')
   if not os.path.exists(path):
     os.makedirs(path)
+  '''
 
+  # check if places for stdout_files existt
+  path = os.path.join(cwd, 'stdout_files')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  stdout_dup = mp.current_process().name + "_svd_test2.txt"
+  sys.stdout = open(stdout_dup, "w")
 
   for year in years:
     #get PMI matrix
@@ -492,11 +520,12 @@ def test_tensorflow():
 
   if len(years) > 1:
     year_string = "wordPairPMI_" + str(years[0]) +"_to_"+ str(years[-1])
+    # align all the tensor slices
+    sharedIDs = normalize_wordIDs(slices, wordIDs)
+
   else:
     year_string = name
-
-  #align all the tensor slices
-  sharedIDs = normalize_wordIDs(slices,wordIDs)
+    sharedIDs = IDs
 
 
   name =  year_string + "_iterations_" + str(iterations) + \
@@ -505,9 +534,12 @@ def test_tensorflow():
          "_batch_size_" + str(batch_size) + \
          "_dimensions_" + str(d) + \
          "_method_" + method + '_'
+
   embedding_algo_start_time = clock()
+
   U_res,B = w2v.tf_random_batch_process(slices,lambda1, lambda2,d, batch_size,\
             iterations, method)
+
   run_time = clock() - embedding_algo_start_time
 
   #save the embeddings
@@ -523,10 +555,11 @@ def test_tensorflow():
     pickle.dump(parameters, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved parameters"
 
-  with open("wordIDs/wordPairPMI_"+ str(years[0]) +
-                '_to_' + str(years[-1]) + 'wordIDs.pickle','wb') as handle:
-    pickle.dump(sharedIDs,handle,protocol=pickle.HIGHEST_PROTOCOL)
-  print "saved IDs"
+  if len(years) > 1:
+    with open("wordIDs/wordPairPMI_"+ str(years[0]) +
+                  '_to_' + str(years[-1]) + 'wordIDs.pickle','wb') as handle:
+      pickle.dump(sharedIDs,handle,protocol=pickle.HIGHEST_PROTOCOL)
+    print "saved IDs"
 
 
 '''-----------------------------------------------------------------------------
@@ -928,21 +961,6 @@ def load_tensor_slices(slices):
 
   return tensor_slices
 
-
-def test_threads_speed():
-  slices = ['wordPairPMI_2000.csv','wordPairPMI_2001.csv']
-  def f():
-    PMI1,_= read_in_pmi(slices[0],max_words=10,display_progress=True)
-    PMI2, _ = read_in_pmi(slices[1], max_words=10, display_progress=True)
-
-  def g():
-    PMI_k = load_tensor_slices(slices)
-
-  time1 = t.timeit(f)
-  time2 = t.timeit(g)
-
-  print "t1: ",time1," t2:", time2
-
 def process_helper(slice_index,slice_file,dictionary):
 #   print "hello from thread {}".format(slice_index)
  PMI, _ = read_in_pmi(slice_file,max_words=10,display_progress=True)
@@ -993,34 +1011,6 @@ def memory_assess(display = False,file_path = None):
 
   if file_path:
     f.close()
-
-def multiprocessing_test():
-
-
-  jobs = []
-  cores =  psutil.cpu_count(False)
-  nnz_count = 4
-  random_c = np.random.rand(cores*nnz_count) + np.random.rand(
-    nnz_count*cores)*1j
-
-  for i in range(cores):
-    print "core {} should get: {}"\
-      .format(i,random_c[nnz_count*i:nnz_count*(i+1)])
-
-  shared_mem = RawArray(c_double,random_c.view(np.float64))
-  print random_c.view(np.float64)
-  for i in range(cores):
-    p = mp.Process(target=ps.process_func, name=i+1,args=(shared_mem,
-                                                          nnz_count,))
-    jobs.append(p)
-    p.start()
-
-  for i in range(len(jobs)):
-    jobs[i].join()
-
-  for elem in shared_mem:
-    print elem
-
 
 '''-----------------------------------------------------------------------------
     read_in_word_index()
