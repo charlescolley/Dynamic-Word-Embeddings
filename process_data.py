@@ -457,17 +457,17 @@ def hyper_param_search():
   lambda1 = .01  # U regularizer
   lambda2 = .01  # B regularizer
   d = 50
-  base_batch_size = 1000
+  base_batch_size = 10
 
   methods = ['GD', 'Ada', 'Adad', 'Adam']
-  batch_size_tests = 4
+  batch_size_tests = 2
   jobs = []
 
   for method in methods:
     for i in range(1,batch_size_tests):
 
       batch_size = base_batch_size ** i
-      iterations = 10**(6 - i)
+      iterations = 1#10**(6 - i)
       process_name = method +"_" + str(batch_size)
 
       p = mp.Process(target=test_tensorflow, name=process_name,
@@ -475,9 +475,11 @@ def hyper_param_search():
                            method,batch_size,years))
       jobs.append(p)
       p.start()
+      print "started process:" + process_name
 
   for i in range(len(jobs)):
     jobs[i].join()
+    print "joined job {}".format(i)
 
 def test_tensorflow(iterations, lambda1,lambda2,d,method,batch_size,years):
 
@@ -612,11 +614,6 @@ def plot_performance():
 
       w2v.evaluate_embedding(U,B,param_dict['lambda1'],param_dict['lambda1'],
                              years)
-
-
-
-
-
 
 
 '''-----------------------------------------------------------------------------
