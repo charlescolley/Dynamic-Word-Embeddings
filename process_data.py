@@ -36,30 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  os.chdir('/mnt/hgfs/datasets/wordEmbeddings')
-
-  years = [2000,2001]
-  slices = []
-  wordIDs = []
-
-  for year in years:
-    #get PMI matrix
-    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
-    files = os.listdir(os.getcwd())
-    file = filter(lambda x: re.match(pattern, x), files)[0]
-    print file
-    name, _ = file.split('.')
-
-    PMI, IDs = read_in_pmi(file, display_progress=True,max_words=1000)
-    #PMI = sp.random(100, 100, format='dok')
-
-    slices.append(PMI)
-    wordIDs.append(IDs)
-
-  #final_dict = normalize_wordIDs(slices,wordIDs)
-  for slice in slices:
-     print slice.nnz
-  print "done"
+  hyper_param_search()
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -454,20 +431,20 @@ def word_embedding_arithmetic(embedding, indices, k):
 
 def hyper_param_search():
   years = [2016]
-  lambda1 = .01  # U regularizer
-  lambda2 = .01  # B regularizer
+  lambda1 = .001  # U regularizer
+  lambda2 = .001  # B regularizer
   d = 50
   base_batch_size = 10
 
   methods = ['GD', 'Ada', 'Adad', 'Adam']
-  batch_size_tests = 2
+  batch_size_tests = 5
   jobs = []
 
   for method in methods:
-    for i in range(1,batch_size_tests):
+    for i in range(1,batch_size_tests+1):
 
       batch_size = base_batch_size ** i
-      iterations = 1#10**(6 - i)
+      iterations = 10**(7 - i)
       process_name = method +"_" + str(batch_size)
 
       p = mp.Process(target=test_tensorflow, name=process_name,
@@ -503,7 +480,7 @@ def test_tensorflow(iterations, lambda1,lambda2,d,method,batch_size,years):
   if not os.path.exists(path):
     os.makedirs(path)
 
-  stdout_dup = mp.current_process().name + "_svd_test2.txt"
+  stdout_dup = 'stdout_files/' + mp.current_process().name + "_svd_test2.txt"
   sys.stdout = open(stdout_dup, "w")
 
   for year in years:

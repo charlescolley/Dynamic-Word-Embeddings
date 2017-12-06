@@ -445,6 +445,10 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
         optimizer = tf.train.AdadeltaOptimizer()
       elif method == 'Adam':
         optimizer = tf.train.AdamOptimizer()
+      elif method == 'Momen':
+        optimizer = tf.train.MomentumOptimizer()
+      elif method == 'Nest':
+        optimizer = tf.train.MomentumOptimizer(use_nesterov=True)
       else:
         optimizer = tf.train.GradientDescentOptimizer(.01)
       train = optimizer.minimize(total_loss)
