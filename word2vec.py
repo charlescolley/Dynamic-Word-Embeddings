@@ -20,7 +20,22 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
+  T = 3
+  n = 10
+  slices = []
+  for t in range(T):
+    matrix = sp.dok_matrix((n,n))
+    for i in range(n):
+      matrix[i,i] = i
+    slices.append(matrix)
+  plt.spy(slices[0])
+  plt.show()
 
+  A = flatten(slices)
+  plt.spy(A)
+  plt.show()
+
+'''
   lambda1 = .01
   lambda2 = .01
   d = 10
@@ -28,12 +43,13 @@ def main():
   iterations = 1000
   method = 'Adam'
 
-  P, ID = block_partitioned_model([10,15,25])
-  U,B = tf_random_batch_process([P], lambda1, lambda2, d, 40,
+  P, ID = block_partitioned_model([10,15])
+  U,B = tf_random_batch_process([P], lambda1, lambda2, d, 25,
                                 iterations,method,include_core=False)
   loss_val, U_grad_fro_norm, B_grad_fro_norm =  \
     evaluate_embedding(U,B,lambda1,lambda2,[213212],[P])
   print loss_val, U_grad_fro_norm, B_grad_fro_norm
+'''
 
 def make_test_tensor():
   n = 2
@@ -380,6 +396,7 @@ def tensorflow_embedding(P_list, lambda1,lambda2, d, iterations,
   return U_res, B_res
 
 
+
 def tf_submatrix(P,i_indices, j_indices):
  return tf.map_fn(lambda x: tf.gather(x, j_indices), tf.gather(P, i_indices))
 
@@ -649,7 +666,7 @@ def evaluate_embedding(U,B,lambda1,lambda2, years,P_slices =None):
     if B:
       B_grad_fro_norm = sess.run(tf.reduce_sum(tf.square(
         optimizer.compute_gradients(total_loss_func,tf_B)[0])))
-    else:    train = optimizer.minimize(total_loss_func)
+    else:
       B_grad_fro_norm = None
 
     return loss_val, U_grad_fro_norm, B_grad_fro_norm
@@ -799,6 +816,28 @@ def t_svd(A,k):
   jobs = []
 
 
+'''-----------------------------------------------------------------------------
+    flatten(A)
+      This function takes in a list of sparse dok scipy matrices and returns 
+      the mode 1 flattened tensor in a csr format.
+    Inputs:
+      A - (list of sparse dok matrices)
+        the tensor representation of the data
+    Returns:
+      A_1 - (csr sparse matrix)
+        the mode 1 flattening of the tensor A
+    
+-----------------------------------------------------------------------------'''
+def flatten(A):
+  T = len(A)
+  n = A[0].shape[0]
+  A_1 = sp.dok_matrix((n,T*n))
+
+  for t in range(T):
+    for ((i,j), nnz) in A[t].iteritems():
+      A_1[i,j + n*t] = nnz
+
+  return A_1.tocsr()
 '''-----------------------------------------------------------------------------
     rotate_tensor(A)
       This function takes in a list of n x n sparse matrices representing a 
