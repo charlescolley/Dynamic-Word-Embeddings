@@ -418,16 +418,14 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
       B_kU_i = tf.tensordot(tf.gather(U,i),B[k],1)
 
       loss_ij = tf.reduce_sum(tf.square(
-        tf.sparse_add(P, tf.matmul(B_kU_i, B_kU_j,
+        tf.sparse_add(-1*P, tf.matmul(B_kU_i, B_kU_j,
                                           transpose_b=True))))
 
       loss_ij_on_nil = tf.reduce_sum(tf.square(
         tf.matmul(B_kU_i,B_kU_j, transpose_b=True)))
 
-
-
       reg_U = lambda1 * tf.reduce_sum(tf.square(U))
-      reg_B = lambda2 * tf.reduce_sum(B)
+      reg_B = lambda2 * tf.reduce_sum(tf.square(B))
 
       total_loss = loss_ij + reg_U + reg_B
       total_loss_on_nil = loss_ij_on_nil + reg_U + reg_B
@@ -446,9 +444,9 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
       elif method == 'Adam':
         optimizer = tf.train.AdamOptimizer()
       elif method == 'Momen':
-        optimizer = tf.train.MomentumOptimizer()
+        optimizer = tf.train.MomentumOptimizer(learning_rate=.01)
       elif method == 'Nest':
-        optimizer = tf.train.MomentumOptimizer(use_nesterov=True)
+        optimizer = tf.train.MomentumOptimizer(learning_rate=.01,use_nesterov=True)
       else:
         optimizer = tf.train.GradientDescentOptimizer(.01)
       train = optimizer.minimize(total_loss)
@@ -518,13 +516,15 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
         the regularizer term for B
       years  - (int list)
         a list of years that the embedding is for.
+      method - (string)
+        the type of optimizer run, used for computing the gradients
     Returns:
       loss_func_val -(float)
         the value of the loss function
       jacobian_norm -(float)
         the frobenius norm of the jacobian
 -----------------------------------------------------------------------------'''
-def evaluate_embedding(U,B,lambda1,lambda2, years):
+def evaluate_embedding(U,B,lambda1,lambda2, years,method):
 
   #load in the relevant time slices
   PMI_matrices = []
@@ -534,14 +534,42 @@ def evaluate_embedding(U,B,lambda1,lambda2, years):
     PMI, IDs = pd.read_in_pmi(file)
     PMI_matrices.append(PMI)
     word_IDs.append(IDs)
+  
+  if len(years) > 1:
+   shared_ID = pd.normalize_wordIDs(PMI_matrices,IDs)
 
-  pd.normalize_wordIDs(PMI_matrices,IDs)
-
+  slice_wise_loss_funcs = []
+  
   with tf.Session() as sess:
     tf_U = tf.get_variable("U",initializer=U)
     tf_B = tf.get_variable("B",initializer=B)
 
-    tf_P = tf.sparse_placeholder(shape=[])
+    tf_P = []
+    for i in range(len(years)):
+      tf_P.append(tf.SparseTensorValue(PMI_matrices[i].keys(),PMI_matrices[i].values(),
+                                       [PMI_matrices[i].shape[0].PMI_matrices[i].shape[1]]))
+    for i in range(len(years)):
+      UB = tf_U * tf_B[i]
+
+      loss_func_i = tf.reduce_sum(tf.square(
+        tf.sparse_add(-1*tf_P[i], tf.matmul(UB, UB,transpose_b=True))))
+      slice_wise_loss_funcs.append(loss_func_i)
+
+    reg_U = lambda1 * tf.reduce_sum(tf.square(U))
+    reg_B = lambda2 * tf.reduce_sum(B)
+
+    total_loss_func = tf.reduce_sum(slice_wise_loss_funcs) + reg_U + reg_B
+    optimizer = tf.train.GradientDescentOptimizer(.01)
+    train = optimizer.minimize(total_loss_func)
+     
+    init = tf.global_variables_initializer()
+    sess.run(init)
+
+    loss_val = sess.run(total_loss_func)
+    U_grad_fro_norm = tf.reduce_sum(tf.square(optimizer.compute_gradients(total_loss_func,tf_U)[0]))
+    B_grad_fro_norm = tf.reduce_sum(tf.square(optimizer.compute_gradients(total_loss_func,tf_B)[0]))
+
+    
 
 def frobenius_diff(A, B, C):
   return tf.reduce_sum((tf.sparse_add(A,tf.matmul(B, C,transpose_b=True)))** 2)
