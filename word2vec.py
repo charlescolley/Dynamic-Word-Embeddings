@@ -25,12 +25,15 @@ def main():
   lambda2 = .01
   d = 10
   batch_size = 40
-  iterations = 100
+  iterations = 1000
   method = 'Adam'
 
   P, ID = block_partitioned_model([10,15,25])
-  U,B = tf_random_batch_process(P, lambda1, lambda2, d, batch_size,
-                            iterations, results_file)
+  U,B = tf_random_batch_process([P], lambda1, lambda2, d, 40,
+                                iterations,method,include_core=False)
+  loss_val, U_grad_fro_norm, B_grad_fro_norm =  \
+    evaluate_embedding(U,B,lambda1,lambda2,[213212],[P])
+  print loss_val, U_grad_fro_norm, B_grad_fro_norm
 
 def make_test_tensor():
   n = 2
@@ -227,7 +230,6 @@ def scipy_optimizer_test_func():
 def block_partitioned_model(group_word_counts):
   constant = 100
   n = sum(group_word_counts)
-  print n
   PMI_matrix = sp.dok_matrix((n,n))
 
   #generate the matrix
@@ -240,7 +242,6 @@ def block_partitioned_model(group_word_counts):
           PMI_matrix[j,i] = constant
     starting_index += group_word_count
 
-  print "made it "
   #generate the word IDs
   word_IDs = {}
   group_ID = 0
@@ -428,8 +429,9 @@ def tf_submatrix(P,i_indices, j_indices):
         the d dimensional core tensor of the 2-tucker factorization
 -----------------------------------------------------------------------------'''
 def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
-                            iterations,method,
-                            results_file = None):
+                            iterations,method, results_file = None,
+                            return_loss = False, include_core = True):
+
   T = len(P_slices)
   n = P_slices[0].shape[0]
   record_frequency = 5
@@ -446,9 +448,10 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
        as sess:
     with tf.name_scope("loss_func"):
       U = tf.get_variable("U",dtype=tf.float32,
-                          initializer=tf.random_uniform([n,d]))
-      B = tf.get_variable("B",dtype=tf.float32,
-                          initializer=tf.random_uniform([T, d, d]))
+                          initializer=tf.ones([n,d]))
+      if include_core:
+        B = tf.get_variable("B",dtype=tf.float32,
+                            initializer=tf.ones([T, d, d]))
     
       P = tf.sparse_placeholder(dtype=tf.float32,
                                 shape=np.array([batch_size, batch_size], dtype=np.int64))
@@ -456,22 +459,33 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
       j = tf.placeholder(dtype=tf.int32,shape=np.array([batch_size,],dtype=np.int64))
       k = tf.placeholder(dtype=tf.int32)
 
-
-      B_kU_j = tf.tensordot(tf.gather(U,j),B[k],1)
-      B_kU_i = tf.tensordot(tf.gather(U,i),B[k],1)
-
-      loss_ij = tf.reduce_sum(tf.square(
-        tf.sparse_add(P, tf.matmul(-1*B_kU_i, B_kU_j,
-                                          transpose_b=True))))
-
-      loss_ij_on_nil = tf.reduce_sum(tf.square(
-        tf.matmul(B_kU_i,B_kU_j, transpose_b=True)))
-
       reg_U = lambda1 * tf.reduce_sum(tf.square(U))
-      reg_B = lambda2 * tf.reduce_sum(tf.square(B))
 
-      total_loss = loss_ij + reg_U + reg_B
-      total_loss_on_nil = loss_ij_on_nil + reg_U + reg_B
+      if include_core:
+        B_kU_j = tf.tensordot(tf.gather(U,j),B[k],1)
+        B_kU_i = tf.tensordot(tf.gather(U,i),B[k],1)
+
+        loss_ij = tf.reduce_sum(tf.square(
+          tf.sparse_add(P, tf.matmul(-1*B_kU_i, B_kU_j,
+                                            transpose_b=True))))
+
+        loss_ij_on_nil = tf.reduce_sum(tf.square(
+          tf.matmul(B_kU_i,B_kU_j, transpose_b=True)))
+
+        reg_B = lambda2 * tf.reduce_sum(tf.square(B))
+
+        total_loss = loss_ij + reg_U + reg_B
+        total_loss_on_nil = loss_ij_on_nil + reg_U + reg_B
+      else:
+        loss_ij = tf.reduce_sum(tf.square(
+          tf.sparse_add(P, tf.matmul(-1 * tf.gather(U,i), tf.gather(U,j),
+                                     transpose_b=True))))
+
+        loss_ij_on_nil = tf.reduce_sum(tf.square(
+          tf.matmul(tf.gather(U,i), tf.gather(U,j), transpose_b=True)))
+
+        total_loss = loss_ij + reg_U
+        total_loss_on_nil = loss_ij_on_nil + reg_U
 
       if results_file:
         total_summ = tf.summary.scalar('loss',total_loss)
@@ -502,13 +516,16 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
     init = tf.global_variables_initializer()
     sess.run(init)
 
+    if return_loss:
+      loss = []
+
+
     for step in range(1,iterations+1):
 
       #update user
       if not (step % (iterations/update_messages)):
         print "finished {}% steps completed".format(
           (100*float(step)/iterations))
-
       tf_i = np.random.choice(n,size=batch_size,replace=False)
       tf_j = np.random.choice(n,size=batch_size,replace=False)
       tf_k = 0 if T == 1 else np.random.choice(T,size=1)[0]
@@ -524,6 +541,7 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
       else:
         params = {i: tf_i, j: tf_j,k:tf_k}
         sess.run(train_on_nil, feed_dict=params)
+
       if results_file:
         if not step % record_frequency:
           writer.add_summary(sess.run(U_summ,feed_dict=params))
@@ -537,12 +555,12 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
       writer.close()
 
     U_res = sess.run(U)
-    B_res = sess.run(B)
+    B_res = sess.run(B) if include_core else None
 
   return U_res,B_res
 
 '''-----------------------------------------------------------------------------
-    evaluate_embedding(U.B,lambda1,lambda2,years)
+    evaluate_embedding(U.B,lambda1,lambda2,years,P_slices)
       This function takes in a computed U and B from a given run and returns 
       the value of the loss function at that point and the Frobenius norm of 
       the Jacobian. This function sets up a tensorflow computation graph to 
@@ -561,56 +579,80 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
         a list of years that the embedding is for.
       method - (string)
         the type of optimizer run, used for computing the gradients
+      P_slices - (optional list of sparse dok matrices)
+        a list of sparse matrices to use if the embeddings come from 
+        somewhere other than the PMI matrices.
     Returns:
       loss_func_val -(float)
         the value of the loss function
-      jacobian_norm -(float)
-        the frobenius norm of the jacobian
+      U_grad_fro_norm-(float)
+        the frobenius norm of the gradient with respect to U
+      B_grad_fro_norm - (float)
+        the frobenius norm of the gradient with respect to UB
 -----------------------------------------------------------------------------'''
-def evaluate_embedding(U,B,lambda1,lambda2, years,method):
+def evaluate_embedding(U,B,lambda1,lambda2, years,P_slices =None):
 
-  #load in the relevant time slices
-  PMI_matrices = []
-  word_IDs = []
-  for year in years:
-    file = "wordPairPMI_" + str(year) + ".csv"
-    PMI, IDs = pd.read_in_pmi(file)
-    PMI_matrices.append(PMI)
-    word_IDs.append(IDs)
+  #load in the relevant time slices if none passed in
+  if P_slices == None:
+    PMI_matrices = []
+    word_IDs = []
+    for year in years:
+      file = "wordPairPMI_" + str(year) + ".csv"
+      PMI, IDs = pd.read_in_pmi(file)
+      PMI_matrices.append(PMI)
+      word_IDs.append(IDs)
   
-  if len(years) > 1:
-   shared_ID = pd.normalize_wordIDs(PMI_matrices,IDs)
+    if len(years) > 1:
+      shared_ID = pd.normalize_wordIDs(PMI_matrices,IDs)
+  else:
+    PMI_matrices = P_slices
 
   slice_wise_loss_funcs = []
   
   with tf.Session() as sess:
-    tf_U = tf.get_variable("U",initializer=U)
-    tf_B = tf.get_variable("B",initializer=B)
+    tf_U = tf.get_variable("U_tf",initializer=U)
+    if B:
+      tf_B = tf.get_variable("B_tf",initializer=B)
 
     tf_P = []
     for i in range(len(years)):
       tf_P.append(tf.SparseTensorValue(PMI_matrices[i].keys(),PMI_matrices[i].values(),
-                                       [PMI_matrices[i].shape[0].PMI_matrices[i].shape[1]]))
+                                       [PMI_matrices[i].shape[0],
+                                        PMI_matrices[i].shape[1]]))
     for i in range(len(years)):
-      UB = tf_U * tf_B[i]
 
-      loss_func_i = tf.reduce_sum(tf.square(
-        tf.sparse_add(tf_P[i], tf.matmul(-1*UB, UB,transpose_b=True))))
+      if B:
+        UB = tf.matmul(tf_U, tf_B[i])
+        loss_func_i = tf.reduce_sum(tf.square(
+          tf.sparse_add(tf_P[i], tf.matmul(-1 * UB, UB, transpose_b=True))))
+      else:
+        loss_func_i = tf.reduce_sum(tf.square(
+        tf.sparse_add(tf_P[i], tf.matmul(-1 * U, U, transpose_b=True))))
+
       slice_wise_loss_funcs.append(loss_func_i)
 
     reg_U = lambda1 * tf.reduce_sum(tf.square(U))
-    reg_B = lambda2 * tf.reduce_sum(B)
+    if B:
+      reg_B = lambda2 * tf.reduce_sum(tf.square(B))
+      total_loss_func = tf.reduce_sum(slice_wise_loss_funcs) + reg_U + reg_B
+    else:
+      total_loss_func = tf.reduce_sum(slice_wise_loss_funcs) + reg_U
 
-    total_loss_func = tf.reduce_sum(slice_wise_loss_funcs) + reg_U + reg_B
     optimizer = tf.train.GradientDescentOptimizer(.01)
-    train = optimizer.minimize(total_loss_func)
      
     init = tf.global_variables_initializer()
     sess.run(init)
 
     loss_val = sess.run(total_loss_func)
-    U_grad_fro_norm = tf.reduce_sum(tf.square(optimizer.compute_gradients(total_loss_func,tf_U)[0]))
-    B_grad_fro_norm = tf.reduce_sum(tf.square(optimizer.compute_gradients(total_loss_func,tf_B)[0]))
+    U_grad_fro_norm = sess.run(tf.reduce_sum(tf.square(
+      optimizer.compute_gradients(total_loss_func,tf_U)[0])))
+    if B:
+      B_grad_fro_norm = sess.run(tf.reduce_sum(tf.square(
+        optimizer.compute_gradients(total_loss_func,tf_B)[0])))
+    else:    train = optimizer.minimize(total_loss_func)
+      B_grad_fro_norm = None
+
+    return loss_val, U_grad_fro_norm, B_grad_fro_norm
 
 def frobenius_diff(A, B, C):
   return tf.reduce_sum((tf.sparse_add(A,tf.matmul(B, C,transpose_b=True)))** 2)
