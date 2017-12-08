@@ -20,22 +20,17 @@ import process_data as pd
 from sklearn.manifold import TSNE
 
 def main():
-  n = 10000
-  d = 50
-  lambda1 = .001
-  lambda2 = .001
-  batch_size = 100
-  iterations = 10
-  method = 'Adam'
-  slices = 1
-  P = []
-  for i in xrange(slices):
-    B = sp.random(n, d, density=.3, format='dok')
-    P.append((B * B.T).asformat('dok'))
 
-  embedding_algo_start_time = clock()
-  tf_random_batch_process(P, lambda1,lambda2, d, batch_size, iterations, method, thread_count)
-  print "run time of operation = {}s".format(clock() - embedding_algo_start_time)
+  lambda1 = .01
+  lambda2 = .01
+  d = 10
+  batch_size = 40
+  iterations = 100
+  method = 'Adam'
+
+  P, ID = block_partitioned_model([10,15,25])
+  U,B = tf_random_batch_process(P, lambda1, lambda2, d, batch_size,
+                            iterations, results_file)
 
 def make_test_tensor():
   n = 2
@@ -211,6 +206,54 @@ def scipy_optimizer_test_func():
 
   results = opt.minimize(f,X,method='BFGS',jac=f_prime)
   print results.x
+
+'''-----------------------------------------------------------------------------
+    block_partitioned_model()
+      This function creates a PMI matrix which adheres to a block partition 
+      graph model for a variable amount of communities of words. The function 
+      will return a block diagonal matrix with constant values in the off 
+      diagonal elements of the matrix within the same community.
+    Inputs: 
+      group_word_counts - (list of ints)
+        a list of the word counts of each group must be positive values.
+    returns:
+      PMI_matrix -(sparse dok matrix)
+        the pmi matrix to test with
+      word_IDs - (dicitonary)
+        the dictionary linking the indices to word names, this is used for 
+        testing with the word_embedding_arithmetic and normalize_wordIDs 
+        functions.
+-----------------------------------------------------------------------------'''
+def block_partitioned_model(group_word_counts):
+  constant = 100
+  n = sum(group_word_counts)
+  print n
+  PMI_matrix = sp.dok_matrix((n,n))
+
+  #generate the matrix
+  starting_index = 0
+  for group_word_count in group_word_counts:
+    for i in range(starting_index,starting_index + group_word_count):
+      for j in range(starting_index,i):
+        if (i != j):
+          PMI_matrix[i,j] = constant
+          PMI_matrix[j,i] = constant
+    starting_index += group_word_count
+
+  print "made it "
+  #generate the word IDs
+  word_IDs = {}
+  group_ID = 0
+  index = 0
+  for group_word_count in group_word_counts:
+    for i in range(group_word_count):
+      word = "word_{}_group_{}".format(i,group_ID)
+      word_IDs[word] = index
+      index += 1
+    group_ID += 1
+
+  return PMI_matrix, word_IDs
+
 
 
 '''-----------------------------------------------------------------------------
@@ -418,7 +461,7 @@ def tf_random_batch_process(P_slices, lambda1, lambda2, d, batch_size,
       B_kU_i = tf.tensordot(tf.gather(U,i),B[k],1)
 
       loss_ij = tf.reduce_sum(tf.square(
-        tf.sparse_add(-1*P, tf.matmul(B_kU_i, B_kU_j,
+        tf.sparse_add(P, tf.matmul(-1*B_kU_i, B_kU_j,
                                           transpose_b=True))))
 
       loss_ij_on_nil = tf.reduce_sum(tf.square(
@@ -552,7 +595,7 @@ def evaluate_embedding(U,B,lambda1,lambda2, years,method):
       UB = tf_U * tf_B[i]
 
       loss_func_i = tf.reduce_sum(tf.square(
-        tf.sparse_add(-1*tf_P[i], tf.matmul(UB, UB,transpose_b=True))))
+        tf.sparse_add(tf_P[i], tf.matmul(-1*UB, UB,transpose_b=True))))
       slice_wise_loss_funcs.append(loss_func_i)
 
     reg_U = lambda1 * tf.reduce_sum(tf.square(U))
@@ -568,8 +611,6 @@ def evaluate_embedding(U,B,lambda1,lambda2, years,method):
     loss_val = sess.run(total_loss_func)
     U_grad_fro_norm = tf.reduce_sum(tf.square(optimizer.compute_gradients(total_loss_func,tf_U)[0]))
     B_grad_fro_norm = tf.reduce_sum(tf.square(optimizer.compute_gradients(total_loss_func,tf_B)[0]))
-
-    
 
 def frobenius_diff(A, B, C):
   return tf.reduce_sum((tf.sparse_add(A,tf.matmul(B, C,transpose_b=True)))** 2)
@@ -654,7 +695,6 @@ def tensorflow_SGD(P, d, batch_size = 1):
         sess.run(train,feed_dict = {PMI_section:tf_P_submatrix(i,j)})
     print "x after",sess.run(U_segments[i])
 
-
 '''-----------------------------------------------------------------------------
     project_onto_positive_eigenspaces(A)
       This function takes in a np 2d array and returns the dense matrix with the
@@ -665,7 +705,6 @@ def project_onto_positive_eigenspaces(A):
   positive_eigs = filter(lambda x: vals[x] > 0, range(A.shape[0]))
   submatrix = vecs[np.ix_(range(A.shape[0]), positive_eigs)]
   return np.dot(submatrix,(vals[positive_eigs]*submatrix).T)
-
 
 '''-----------------------------------------------------------------------------
    a tensorflow helper function used to only compute certain gradients. 
@@ -716,7 +755,6 @@ def t_svd(A,k):
 
   #start new set of processes to compute each of the symmetric embeddings
   jobs = []
-
 
 
 '''-----------------------------------------------------------------------------

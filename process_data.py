@@ -469,7 +469,7 @@ def test_tensorflow(iterations, lambda1,lambda2,d,method,batch_size,years):
     os.makedirs(path)
 
   '''
-  #check if places for tf_board existt
+  #check if places for tf_board exist
   path = os.path.join(cwd, 'tf_board')
   if not os.path.exists(path):
     os.makedirs(path)
