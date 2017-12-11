@@ -36,7 +36,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  hyper_param_search()
+  os.chdir('/mnt/hgfs/datasets/wordEmbeddings')
+  flattened_svd_embedding([2000,2001])
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -66,6 +67,7 @@ def load_tSNE_word_cloud(year):
   embedding = np.load("tSNE/"+ file[0])
   print embedding
   w2v.plot_embeddings(embedding, indices)
+
 
 '''-----------------------------------------------------------------------------
     sequetial_svd_tSNE()
@@ -428,6 +430,48 @@ def word_embedding_arithmetic(embedding, indices, k):
         print "closest words were"
         for neighbor in neighbors:
           print neighbor
+
+
+'''
+'''
+def flattened_svd_embedding(years):
+
+  #check for svd folder
+  # check if places for stdout_files existt
+  path = os.path.join(os.getcwd(), 'flattened_svd')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  slices = []
+  wordIDs = []
+
+  for year in years:
+    #get PMI matrix
+    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+    files = os.listdir(os.getcwd())
+    file = filter(lambda x: re.match(pattern, x), files)[0]
+    print file
+    name, _ = file.split('.')
+
+    PMI, IDs = read_in_pmi(file, display_progress=True)
+
+    slices.append(PMI)
+    wordIDs.append(IDs)
+
+  print "loaded in files"
+
+  #align tensor slices
+  shared_ID = normalize_wordIDs(slices,wordIDs)
+
+  print "aligned tensor slices"
+
+  with open("wordIDs/wordPairPMI_" + str(years[0]) +
+                '_to_' + str(years[-1]) + 'wordIDs.pickle', 'wb') as handle:
+    pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
+  print "saved IDs"
+
+  w2v.flattened_svd(slices,50,save_results=True)
+
 
 def hyper_param_search():
   years = [2016]

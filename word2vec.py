@@ -838,8 +838,8 @@ def flattened_svd(A,k,save_results = False, parallel = False):
   U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
 
   if save_results:
-    np.save("svd/flattenedsvdU.npy", U)
-    np.save("svd/flattenedsvdsigma.npy", sigma)
+    np.save("flattened_svd/flattenedsvdU.npy", U)
+    np.save("flattened_svd/flattenedsvdsigma.npy", sigma)
 
   b = np.ndarray((T, k, k))
   if parallel:
@@ -864,7 +864,7 @@ def flattened_svd(A,k,save_results = False, parallel = False):
       b[t] = np.dot(U.T,A[t].dot(U))
 
   if save_results:
-    np.save("svd/flattenedsvdb",b)
+    np.save("flattened_svd/flattenedsvdb",b)
 
 
   return U,b
