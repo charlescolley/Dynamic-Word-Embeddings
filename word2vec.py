@@ -19,10 +19,10 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  t = 5
+  T = 5
   n = 100
   slices = []
-  for t in range(t):
+  for t in range(T):
     matrix = sp.dok_matrix((n,n))
     for i in range(n):
       matrix[i,i] = i
@@ -355,7 +355,7 @@ def tensorflow_embedding(p_list, lambda1,lambda2, d, iterations,
 
     ub = tf.map_fn(lambda b_k: tf.matmul(u,b_k),b)
     svd_term = tf.norm(tf.sparse_add(pmi,
-      tf.map_fn(lambda ub_k: tf.matmul(-1 * ub_k, ub_k, transpose_b=true),ub)))
+      tf.map_fn(lambda ub_k: tf.matmul(-1 * ub_k, ub_k, transpose_b=True),ub)))
     fro_1 = tf.multiply(lambda_1, tf.norm(u))
     fro_2 = tf.multiply(lambda_2,tf.norm(b))
   #  fro_2 = tf.multiply(lambda_2, tf.norm(v))
@@ -446,7 +446,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
                             iterations,method, results_file = None,
                             return_loss = False, include_core = True):
 
-  t = len(p_slices)
+  T = len(p_slices)
   n = p_slices[0].shape[0]
   record_frequency = 5
   update_messages = 1
@@ -463,9 +463,6 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
     with tf.name_scope("loss_func"):
       u = tf.get_variable("u",dtype=tf.float32,
                           initializer=tf.ones([n,d]))
-      if include_core:
-        b = tf.get_variable("b",dtype=tf.float32,
-                            initializer=tf.ones([t, d, d]))
 
       p = tf.sparse_placeholder(dtype=tf.float32,
                                 shape=np.array([batch_size, batch_size], dtype=np.int64))
@@ -476,15 +473,18 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
       reg_u = lambda1 * tf.reduce_sum(tf.square(u))
 
       if include_core:
+        b = tf.get_variable("b", dtype=tf.float32,
+                            initializer=tf.ones([T, d, d]))
+
         b_ku_j = tf.tensordot(tf.gather(u,j),b[k],1)
         b_ku_i = tf.tensordot(tf.gather(u,i),b[k],1)
 
         loss_ij = tf.reduce_sum(tf.square(
           tf.sparse_add(p, tf.matmul(-1*b_ku_i, b_ku_j,
-                                            transpose_b=true))))
+                                            transpose_b=True))))
 
         loss_ij_on_nil = tf.reduce_sum(tf.square(
-          tf.matmul(b_ku_i,b_ku_j, transpose_b=true)))
+          tf.matmul(b_ku_i,b_ku_j, transpose_b=True)))
 
         reg_b = lambda2 * tf.reduce_sum(tf.square(b))
 
@@ -493,10 +493,10 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
       else:
         loss_ij = tf.reduce_sum(tf.square(
           tf.sparse_add(p, tf.matmul(-1 * tf.gather(u,i), tf.gather(u,j),
-                                     transpose_b=true))))
+                                     transpose_b=True))))
 
         loss_ij_on_nil = tf.reduce_sum(tf.square(
-          tf.matmul(tf.gather(u,i), tf.gather(u,j), transpose_b=true)))
+          tf.matmul(tf.gather(u,i), tf.gather(u,j), transpose_b=True)))
 
         total_loss = loss_ij + reg_u
         total_loss_on_nil = loss_ij_on_nil + reg_u
@@ -508,18 +508,19 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
         b_summ = tf.summary.tensor_summary("b",b)
 
     with tf.name_scope("train"):
-      if method == 'ada':
-        optimizer = tf.train.adagradoptimizer(.01)
-      elif method == 'adad':
-        optimizer = tf.train.adadeltaoptimizer()
-      elif method == 'adam':
-        optimizer = tf.train.adamoptimizer()
-      elif method == 'momen':
-        optimizer = tf.train.momentumoptimizer(learning_rate=.01)
-      elif method == 'nest':
-        optimizer = tf.train.momentumoptimizer(learning_rate=.01,use_nesterov=true)
+      if method == 'Ada':
+        optimizer = tf.train.AdadeltaOptimizer(.01)
+      elif method == 'Adad':
+        optimizer = tf.train.AdadeltaOptimizer()
+      elif method == 'Adam':
+        optimizer = tf.train.AdamOptimizer()
+      elif method == 'Momen':
+        optimizer = tf.train.MomentumOptimizer(learning_rate=.01)
+      elif method == 'Nest':
+        optimizer = tf.train.MomentumOptimizer(learning_rate=.01,
+                                               use_nesterov=True)
       else:
-        optimizer = tf.train.gradientdescentoptimizer(.01)
+        optimizer = tf.train.GradientDescentOptimizer(.01)
       train = optimizer.minimize(total_loss)
       train_on_nil = optimizer.minimize(total_loss_on_nil)
 
@@ -542,7 +543,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
           (100*float(step)/iterations))
       tf_i = np.random.choice(n,size=batch_size,replace=False)
       tf_j = np.random.choice(n,size=batch_size,replace=False)
-      tf_k = 0 if t == 1 else np.random.choice(t,size=1)[0]
+      tf_k = 0 if T == 1 else np.random.choice(T,size=1)[0]
       sub_matrix_p = (p_slices[tf_k])[tf_i][:,tf_j]
 
       #switches to different loss function if sparse tensor is empty
@@ -623,25 +624,23 @@ def evaluate_embedding(u,b,lambda1,lambda2, years,p_slices =None):
 
   slice_wise_loss_funcs = []
 
-  with tf.session() as sess:
+  with tf.Session() as sess:
     tf_u = tf.get_variable("u_tf",initializer=u)
     if b:
-      tf_b = tf.get_variable("b_tf",initializer=b)
+      tf_b = tf.get_variable("b_tf", initializer=b)
 
     tf_p = []
     for i in range(len(years)):
-      tf_p.append(tf.sparsetensorvalue(pmi_matrices[i].keys(),pmi_matrices[i].values(),
-                                       [pmi_matrices[i].shape[0],
-                                        pmi_matrices[i].shape[1]]))
+      tf_p.append(tf.SparseTensorValue(pmi_matrices[i].keys(),pmi_matrices[
+        i].values(),[pmi_matrices[i].shape[0], pmi_matrices[i].shape[1]]))
     for i in range(len(years)):
-
       if b:
         ub = tf.matmul(tf_u, tf_b[i])
         loss_func_i = tf.reduce_sum(tf.square(
-          tf.sparse_add(tf_p[i], tf.matmul(-1 * ub, ub, transpose_b=true))))
+          tf.sparse_add(tf_p[i], tf.matmul(-1 * ub, ub, transpose_b=True))))
       else:
         loss_func_i = tf.reduce_sum(tf.square(
-        tf.sparse_add(tf_p[i], tf.matmul(-1 * u, u, transpose_b=true))))
+        tf.sparse_add(tf_p[i], tf.matmul(-1 * u, u, transpose_b=True))))
 
       slice_wise_loss_funcs.append(loss_func_i)
 
@@ -652,7 +651,7 @@ def evaluate_embedding(u,b,lambda1,lambda2, years,p_slices =None):
     else:
       total_loss_func = tf.reduce_sum(slice_wise_loss_funcs) + reg_u
 
-    optimizer = tf.train.gradientdescentoptimizer(.01)
+    optimizer = tf.train.GradientDescentOptimizer(.01)
 
     init = tf.global_variables_initializer()
     sess.run(init)
@@ -669,16 +668,16 @@ def evaluate_embedding(u,b,lambda1,lambda2, years,p_slices =None):
     return loss_val, u_grad_fro_norm, b_grad_fro_norm
 
 def frobenius_diff(a, b, c):
-  return tf.reduce_sum((tf.sparse_add(a,tf.matmul(b, c,transpose_b=true)))** 2)
+  return tf.reduce_sum((tf.sparse_add(a,tf.matmul(b, c,transpose_b=True)))** 2)
 
 def tf_zip(t1_list, t2_list):
-  tf.tensorarray(
+  tf.tensorArray(
     tf.map_fn(lambda (x,y): tf.stack([x,y]),zip(t1_list,t2_list)))
 
 def tensorflow_sgd(p, d, batch_size = 1):
   n = p.shape[0]
   p = p.astype(np.float32)
-  sess = tf.session()
+  sess = tf.Session()
 
   #initialize arrays
   total_partitions = int(ceil(n/float(batch_size)))
@@ -738,7 +737,7 @@ def tensorflow_sgd(p, d, batch_size = 1):
     init = tf.global_variables_initializer()
     sess.run(init)
 
-  optimizer = tf.train.gradientdescentoptimizer(.1)
+  optimizer = tf.train.GradientDescentOptimizer(.1)
 
   print "u_segments[0] before",sess.run(u_segments[0])
 
@@ -783,7 +782,7 @@ def entry_stop_gradients(target, mask):
 def t_svd(a,k):
   max_cores = 20
   n = a[0].shape[0]
-  t = len(a)
+ T= len(a)
 
   a = rotate_tensor(a)
 
@@ -882,11 +881,11 @@ def flattened_svd(A,k,save_results = False, parallel = False):
     
 -----------------------------------------------------------------------------'''
 def flatten(a):
-  t = len(a)
+  T = len(a)
   n = a[0].shape[0]
-  a_1 = sp.dok_matrix((n,t*n))
+  a_1 = sp.dok_matrix((n,T*n))
 
-  for t in range(t):
+  for t in range(T):
     for ((i,j), nnz) in a[t].iteritems():
       a_1[i,j + n*t] = nnz
 
@@ -920,9 +919,6 @@ def rotate_tensor(a):
       rotated_a[j][i,k] = value
 
   return rotated_a
-
-
-
 
 
 if __name__ == "__main__":
