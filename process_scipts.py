@@ -17,6 +17,8 @@ def process_func(shared_mem,nnz_count):
  #                                                          p.virtual_memory(
 # ).free/1e6)
 
+def slice_multiply(A, U, slice_index, shared_dict):
+ shared_dict[slice_index] =  np.matmul(U.T, np.dot(A,U))
 
 '''-----------------------------------------------------------------------------
     compute_fft(tensor_tubes)
