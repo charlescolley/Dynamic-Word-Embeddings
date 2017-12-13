@@ -19,34 +19,29 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  T = 5
-  n = 100
-  slices = []
-  for t in range(T):
-    matrix = sp.dok_matrix((n,n))
-    for i in range(n):
-      matrix[i,i] = i
-    slices.append(matrix)
 
-  U,B = flattened_svd(slices,10)
-
-  print U, B
-
-'''
   lambda1 = .01
   lambda2 = .01
+  n = 100
   d = 10
-  batch_size = 40
-  iterations = 1000
-  method = 'adam'
+  batch_size = 100
+  iterations = 10000
+  method = 'Adam'
+  seed = 123
 
-  p, id = block_partitioned_model([10,15])
-  u,b = tf_random_batch_process([p], lambda1, lambda2, d, 25,
-                                iterations,method,include_core=False)
-  loss_val, u_grad_fro_norm, b_grad_fro_norm =  \
-    evaluate_embedding(u,b,lambda1,lambda2,[213212],[p])
-  print loss_val, u_grad_fro_norm, b_grad_fro_norm
-'''
+  p = sp.random(n,n,density=.3,format='dok',random_state=seed)
+  u,b,loss = tf_random_batch_process([p], lambda1, lambda2, d, batch_size,
+                                iterations,method,include_core=False,
+                                     return_loss=True)
+
+  print (p - np.dot(u,u.T))
+  print np.linalg.norm(p - np.dot(u,u.T),ord='fro')
+  print np.linalg.norm(u)*lambda1
+
+  plt.semilogy(loss)
+  plt.show()
+
+  print "done"
 
 def make_test_tensor():
   n = 2
@@ -457,7 +452,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
   if results_file:
     writer = tf.summary.filewriter(results_file)
 
-  with tf.session(config=tf.configproto(
+  with tf.Session(config=tf.ConfigProto(
                   log_device_placement=False)) \
        as sess:
     with tf.name_scope("loss_func"):
@@ -503,7 +498,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
 
       if results_file:
         total_summ = tf.summary.scalar('loss',total_loss)
-        total_on_nil_summ =   tf.summary.scalar('loss_on_nil',total_loss_on_nil)
+        total_on_nil_summ =  tf.summary.scalar('loss_on_nil',total_loss_on_nil)
         u_summ =  tf.summary.tensor_summary("u",u)
         b_summ = tf.summary.tensor_summary("b",b)
 
@@ -553,6 +548,17 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
                   i: tf_i, j: tf_j,k:tf_k}
 
         sess.run(train,feed_dict =params)
+        if return_loss:
+          if step % 1 == 0:
+            loss_func_val = 0.0
+            for t in range(T):
+              params = {p: (p_slices[t].keys(), p_slices[t].values(),[n, n]),
+                        i: range(n), j: range(n), k: t}
+              loss_func_val += sess.run(loss_ij,feed_dict=params)
+            loss_func_val += sess.run(reg_u)
+            if include_core:
+              loss_func_val += sess.run(reg_b)
+            loss.append(loss_func_val)
       else:
         params = {i: tf_i, j: tf_j,k:tf_k}
         sess.run(train_on_nil, feed_dict=params)
@@ -572,7 +578,8 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
     u_res = sess.run(u)
     b_res = sess.run(b) if include_core else None
 
-  return u_res,b_res
+  loss = loss if return_loss else None
+  return u_res,b_res, loss
 
 '''-----------------------------------------------------------------------------
     evaluate_embedding(u.b,lambda1,lambda2,years,p_slices)
@@ -782,7 +789,7 @@ def entry_stop_gradients(target, mask):
 def t_svd(a,k):
   max_cores = 20
   n = a[0].shape[0]
- T= len(a)
+  T = len(a)
 
   a = rotate_tensor(a)
 
@@ -799,7 +806,7 @@ def t_svd(a,k):
   for i in xrange(process_count):
     start = i*slices_per_process
     end = min((i+1)*slices_per_process, n)
-    p = mp.process(target=compute_fft, name=i + 1,
+    p = mp.Process(target=compute_fft, name=i + 1,
                    args=(a[start:end],fft_p,))
     jobs.append(p)
     p.start()

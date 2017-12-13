@@ -425,6 +425,8 @@ def word_embedding_arithmetic(embedding, indices, k):
         list = zip(operations,map(lambda x: embedding[indices[x],:],words[1:]))
         reduce_embedding = lambda y,x: x[1] + y if x[0] == '+' else y - x[1]
         final_location = reduce(reduce_embedding,list,embedding[indices[words[0]],:])
+        #normalize
+        final_location = final_location/np.linalg.norm(final_location)
         neighbors = k_nearest_neighbors(final_location, k, embedding, indices,
                                         use_embedding=True)
         print "closest words were"
@@ -435,6 +437,7 @@ def word_embedding_arithmetic(embedding, indices, k):
 '''
 '''
 def flattened_svd_embedding(years):
+
 
   #check for svd folder
   # check if places for stdout_files existt
