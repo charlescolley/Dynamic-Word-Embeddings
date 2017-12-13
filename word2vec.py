@@ -830,22 +830,21 @@ def t_svd(a,k):
         the tensor representation of the day
       k - (int)
         the number of singular vectors to compute
-      save_results - (optional bool)
-        whether or not to save the embeddings
+      parallel - (optional bool)
+        whether or not to run the matrix matrix multiplications with multiple 
+        processes. NOTE: UNTESTED!!!
     return:
-      u - (n x k ndarray)
+      U - (n x k ndarray)
         the shared embedding in question
+      sigma - (n array)
+        the sigular values of the singular vectors
       b - (t x k x k ndarray)
         the approximated core tensor
 -----------------------------------------------------------------------------'''
-def flattened_svd(A,k,save_results = False, parallel = False):
+def flattened_svd(A,k, parallel = False):
   A_1 = flatten(A)
   T = len(A)
   U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
-
-  if save_results:
-    np.save("flattened_svd/flattenedsvdU.npy", U)
-    np.save("flattened_svd/flattenedsvdsigma.npy", sigma)
 
   b = np.ndarray((T, k, k))
   if parallel:
@@ -869,11 +868,8 @@ def flattened_svd(A,k,save_results = False, parallel = False):
       A[t] = A[t].tocsr()
       b[t] = np.dot(U.T,A[t].dot(U))
 
-  if save_results:
-    np.save("flattened_svd/flattenedsvdb",b)
 
-
-  return U,b
+  return U, sigma, b
 
 '''-----------------------------------------------------------------------------
     flatten(a)

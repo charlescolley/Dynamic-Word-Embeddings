@@ -473,7 +473,13 @@ def flattened_svd_embedding(years):
     pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
   print "saved IDs"
 
-  w2v.flattened_svd(slices,50,save_results=True)
+  U, sigma,B = w2v.flattened_svd(slices,50,save_results=True)
+
+  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])+'_U.npy',U)
+  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])+'_sigma.npy',
+          sigma)
+  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])+'_B.npy',B)
+  print "saved files"
 
 
 def hyper_param_search():
