@@ -1,7 +1,7 @@
 import multiprocessing as mp
 import psutil as p
 import numpy as np
-from math import ceil
+from math import floor
 import scipy.sparse as sp
 from scipy import fftpack as f
 
@@ -31,27 +31,34 @@ def slice_multiply(A, U, slice_index, shared_dict):
       mapped to the ikj spot in the dense tensor computed. 
     Input:
       tensor_tubes:
-        a list of n x T sparse matrices to have the fft run on. 
+        a list of n x T sparse dok matrices run fft on. 
       fft_P:
         a dense array of type double, which will hold the complex fourier 
         coefficients. Note that because the array is of type double, the real 
-        and complex part must go in two adjacenct indices.
+        and complex part must go in two adjacent indices.
 -----------------------------------------------------------------------------'''
-def compute_fft(tensor_tubes,fft_P):
+def compute_fft(tensor_tubes,fft_P,col_offset):
 
   core = mp.current_process().name - 1
 
   n = tensor_tubes[0].shape[0]
-  T = tensor_tubes[0].shape[1]
+  T = 1 + int(floor((tensor_tubes[0].shape[1]/2)))
 
   for j in xrange(len(tensor_tubes)):
     for i in xrange(n):
       #check if all zero
-      if not tensor_tubes[j][i,:].nnz:
-        fft = f.fft(tensor_tubes[j][i,:].todense())
+      if tensor_tubes[j][i,:].nnz:
+        fft = f.fft(tensor_tubes[j][i,:].todense())[0]
         #b/c data is real elems 0, 1:ceil((T-1)/2) are unique
-        for k in xrange(ceil((T-1)/2.0)):
-          fft_P[n * (n * k + i) + core * j] = fft[k].real
-          fft_P[n * (n * k + i) + core * j] = fft[k].imag
+        for k in xrange(T):
+          print "core {}, ({},{}) = {}, col_offset = {}".format(core,i,
+                                                                col_offset + j,
+                                                                fft[k],
+                                                      col_offset)
+          #factor of 2 accounts for additional mode-3 elements for the complex
+          # components
+          print 2*T * (n * i + (col_offset + j)) + 2*k
+          fft_P[2*T * (n * i + (col_offset + j)) + 2*k] = fft[k].real
+          fft_P[2*T * (n * i + (col_offset + j)) + 2*k+1] = fft[k].imag
 
 

@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from time import clock
 from numpy.linalg import lstsq
-from math import log, ceil
+from math import log, floor, ceil
 from scipy.sparse.linalg import svds
 import scipy.sparse as sp
 import scipy.optimize as opt
@@ -10,38 +10,45 @@ import matplotlib.pyplot as plt
 from functools import reduce
 import gradients as grad
 import multiprocessing as mp
-from ctypes import c_double
 from process_scipts import compute_fft
 import os
+import psutil
 #import plotly.offline as py
 #import plotly.graph_objs as go
 import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
+  n = 9
+  max_cores = 3
+  A = sp.dok_matrix((n,n))
+  B = sp.dok_matrix((n,n))
+  C = sp.dok_matrix((n,n))
+  D = sp.dok_matrix((n,n))
+  count = 1
+  for t in range(4):
+    for i in range(n):
+      for j in range(n):
+        if t == 1:
+          B[i,j] = count
+        elif t == 2:
+          C[i, j] = count
+        elif t == 3:
+          D[i,j] = count
+        else:
+          A[i,j] = count
+        count += 1
+  slices = [A,B,C,D]
+  array = mode_3_fft(slices,max_cores)
 
-  lambda1 = .01
-  lambda2 = .01
-  n = 100
-  d = 10
-  batch_size = 100
-  iterations = 10000
-  method = 'Adam'
-  seed = 123
+  shape = array.shape
+  for i in xrange(shape[0]):
+    for j in xrange(shape[1]):
+      for t in xrange(shape[2]):
+        print "{},{},{} = {}".format(i,j,t,array[i,j,t])
 
-  p = sp.random(n,n,density=.3,format='dok',random_state=seed)
-  u,b,loss = tf_random_batch_process([p], lambda1, lambda2, d, batch_size,
-                                iterations,method,include_core=False,
-                                     return_loss=True)
 
-  print (p - np.dot(u,u.T))
-  print np.linalg.norm(p - np.dot(u,u.T),ord='fro')
-  print np.linalg.norm(u)*lambda1
 
-  plt.semilogy(loss)
-  plt.show()
-
-  print "done"
 
 def make_test_tensor():
   n = 2
@@ -541,7 +548,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
       tf_k = 0 if T == 1 else np.random.choice(T,size=1)[0]
       sub_matrix_p = (p_slices[tf_k])[tf_i][:,tf_j]
 
-      #switches to different loss function if sparse tensor is empty
+      #switches to different lo2*T * (n * i + (col_offset + j)) + 2*kss function if sparse tensor is empty
       if sub_matrix_p.nnz:
         params = \
           {p: (sub_matrix_p.keys(), sub_matrix_p.values(), [batch_size, batch_size]),
@@ -757,6 +764,7 @@ def tensorflow_sgd(p, d, batch_size = 1):
         sess.run(train,feed_dict = {pmi_section:tf_p_submatrix(i,j)})
     print "x after",sess.run(u_segments[i])
 
+
 '''-----------------------------------------------------------------------------
     project_onto_positive_eigenspaces(a)
       this function takes in a np 2d array and returns the dense matrix with the
@@ -782,32 +790,57 @@ def entry_stop_gradients(target, mask):
   return tf.stop_gradient(mask_h * target) + mask * target
 
 '''-----------------------------------------------------------------------------
-    t_svd(a)
-      this function takes in a 3rd order tensor and computes the t-svd 
-      algorithm 
+    mode_3_fft(a, max_cores)
+      this function takes in a 3rd order real tensor representation and 
+      computes the fft along the mode 3 fibers. The function assumes a real 
+      input and thus returns an array which has the 0th and positive 
+      frequency coefficients rather than the entire spectrum. The columns of 
+      the tensor are divided amongst the physical cores of on the system 
+      being run in order to minimize run time. 
+    Input:
+      A - (list of square dok_matrices float64)
+        the tensor representation is assumed to be a list of n x n sparse dok 
+        matrices of 64 bit floating point numbers. The length of the list 
+        denotes the mode 3 dimension of the tensor and is represented by T. 
+      max_cores - optional (int)
+        The number of cores to run the computation with. Note that this is 
+        taken over the minimum of the dimension of the matrices, and the 
+        number of physical cores on the system. If none is passed in, 
+        the default is set to a excessively large number (in terms of cores) 
+        in order to default to min(available cores, n), in practice this 
+        should be all available cores on the machine. 
+    Returns:
+      fft_A - (n x n n T' ndarray of np.complex)
+        fft_A is a dense tensor in the form of an ndarray which has the 0 
+        frequency terms and the positive frequency fft coefficients along the 
+        3rd mode.
+        
 -----------------------------------------------------------------------------'''
-def t_svd(a,k):
-  max_cores = 20
-  n = a[0].shape[0]
-  T = len(a)
+def mode_3_fft(A, max_cores=None):
+  if not max_cores:
+    max_cores = 100000000 #unreasonably large number of cores
 
-  a = rotate_tensor(a)
+  n = A[0].shape[0]
+  T = len(A)
+
+  a = rotate_tensor(A)
 
   #shared array must be float64, will be cast to complex128 in processes
-  fft_p = mp.rawarray(c_double,2*n*n*(1 + ceil((t-1)/2)))
+  fft_p = mp.RawArray('d',int(2*n*n*(1 + floor(T/2.0))))
 
   #set up cores to compute the fft along 3rd mode
   jobs = []
-  core_count = psutil.cpu_count(False)
-  process_count = min(core_count,max_cores)
+  core_count = psutil.cpu_count(False) #don't count virtual cores
+  process_count = min(core_count,max_cores,n)
 
-  slices_per_process = n / process_count
+  slices_per_process = int(ceil(n / float(process_count)))
 
   for i in xrange(process_count):
     start = i*slices_per_process
     end = min((i+1)*slices_per_process, n)
+    print "core {} gets".format(i),a[start:end]
     p = mp.Process(target=compute_fft, name=i + 1,
-                   args=(a[start:end],fft_p,))
+                   args=(a[start:end],fft_p,start))
     jobs.append(p)
     p.start()
 
@@ -815,8 +848,12 @@ def t_svd(a,k):
   for p in jobs:
     p.join()
 
-  #start new set of processes to compute each of the symmetric embeddings
-  jobs = []
+  for val in fft_p:
+    print val
+
+  fft_A = np.ndarray(buffer = fft_p,shape=(n,n,1 + int(floor(T/2.0))),
+                     order='C',dtype=np.complex)
+  return fft_A
 
 '''-----------------------------------------------------------------------------
     flattened_svd(a)
