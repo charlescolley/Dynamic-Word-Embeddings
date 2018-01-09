@@ -48,8 +48,6 @@ def main():
         print "{},{},{} = {}".format(i,j,t,array[i,j,t])
 
 
-
-
 def make_test_tensor():
   n = 2
   m = 3
@@ -271,34 +269,6 @@ def block_partitioned_model(group_word_counts):
   return pmi_matrix, word_ids
 
 
-
-'''-----------------------------------------------------------------------------
-    build_objective_functions(word_count_matrix, k)
-      this function takes in a n x m matrix with the scaled number of times a 
-      word appears within the context c (#(w,c)) and returns a lambda 
-      function which computes the loss function and a gradient function. the 
-      function will 
-    inputs:
-      word_count_matrix - (sparse n x m matrix)
-        a scipy sparse matrix which the (i,j)th entry corresponds to #(w_i,
-        c_j)|d|. here |d| denotes the number of words in the text corpus. 
-      word_count - (dictionary)
-        a dictionary which has the word counts for a text corpus. 
-      k - int
-        the negative sampling rate, creates k fake samples which help prevent 
-        unform distriutions from arising. samples are created from a unigram 
-        distriution. p((w,c)) = #(w)*#(c)^{3/4}/z where z is a normalizing 
-        constant. 
-    returns:
-      loss_func - (lambda func)
-        an anonymous function which has the negated word2vec objective 
-        function (which is typically maximized). 
-        \sum_{(w,c) \in d} (log(softmax(v_c,v_w)) - k 
-      gradient - (lambda func)
-        an anonymous function which has the gradient of the 
------------------------------------------------------------------------------'''
-def build_loss_function(word_count_matrix, word_count, k):
-  print "todo"
 
 '''-----------------------------------------------------------------------------
     tensorflow_embedding(p_list, lambda1, lambda2, d)
