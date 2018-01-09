@@ -47,6 +47,36 @@ def main():
       for t in xrange(shape[2]):
         print "{},{},{} = {}".format(i,j,t,array[i,j,t])
 
+'''-----------------------------------------------------------------------------
+    make_semi_definite(A)
+      This function takes in a matrix A and returns the matrix with any 
+      eigenvectors associated with negative eigenvalues projected out, 
+      this makes the matrix positive-semi definite as it will become rank 
+      deficient. 
+    Input:
+      A - (n x n numpy or scipy matrix)
+        The matrix in question to become semi-postive definite
+    Returns:
+      Dense matrix coming from the outer product of the eigenvectors 
+      associated with the positive eigenvalues. 
+    Note:
+      because scipy.linalg doesn't allow for computation of the full 
+      spectrum, a sparse matrix is converted to a dense matrix, this means 
+      that if a matrix is too large, this function will fail. 
+-----------------------------------------------------------------------------'''
+def make_semi_definite(A):
+  if sp.issparse(A):
+    vals, vecs = np.linalg.eig(A.todense())
+  else:
+    vals, vecs = np.linalg.eig(A)
+
+  pos_indices = []
+  for (index, eigenvalue) in enumerate(vals):
+    if eigenvalue >= 0:
+      pos_indices.append(index)
+
+  return np.dot(vecs[:,pos_indices],vecs[:,pos_indices].T)
+
 
 def make_test_tensor():
   n = 2
