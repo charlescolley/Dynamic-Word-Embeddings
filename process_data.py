@@ -36,8 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  os.chdir('/mnt/hgfs/datasets/wordEmbeddings')
-  flattened_svd_embedding([2000,2001])
+  compute_mode_3_ft([2000,2001])
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -432,6 +431,70 @@ def word_embedding_arithmetic(embedding, indices, k):
         print "closest words were"
         for neighbor in neighbors:
           print neighbor
+
+
+'''-----------------------------------------------------------------------------
+    get_slices(years)
+      This function takes in a list of years to be loaded in and finds the PMI
+      files associated with each year, and aligns them properly then saves 
+      the resulting index-word dictionary if the file already doesn't exist. 
+      Note that this function assumes that it's being run in the correct 
+      directory. 
+    Input:
+      years - (list of ints)
+        the list of years to load in 
+    Returns:
+      slices - (list of sparse dok matrices)
+        the list of PMI matrices associated with the desired years 
+      shared_ID - (dok)
+        a dictionary associating the indices in the tensor to the words of 
+        the PMI matrices. keys are the indices and values are the strings.
+-----------------------------------------------------------------------------'''
+def get_slices(years):
+  slices = []
+  wordIDs = []
+
+  for year in years:
+    # get PMI matrix
+    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+    files = os.listdir(os.getcwd())
+    file = filter(lambda x: re.match(pattern, x), files)[0]
+    print file
+    name, _ = file.split('.')
+
+    PMI, IDs = read_in_pmi(file, display_progress=True)
+
+    slices.append(PMI)
+    wordIDs.append(IDs)
+
+  print "loaded in files"
+
+  shared_ID = normalize_wordIDs(slices, wordIDs)
+  print "aligned tensor slices"
+
+  file_name = "wordIDs/wordPairPMI_" + str(years[0]) +'_to_' + \
+                                       str(years[-1]) + 'wordIDs.pickle'
+  #save shared word IDs if doesn't exist
+  if not os.path.exists(file_name):
+    # align tensor slices
+
+    with open(file_name, 'wb') as handle:
+      pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    print "saved IDs"
+
+  return slices, shared_ID
+
+def compute_mode_3_ft(years):
+  path = os.path.join(os.getcwd(), 'fourier_transforms')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  slices, _ = get_slices(years)
+  transformed_slices = w2v.mode_3_fft(slices)
+
+  file_name = "fft_years_" + str(years[0]) +"_to_" + str(years[-1]) + ".npy"
+  np.save("fourier_transorms/"+file_name,transformed_slices)
+  print "saved files"
 
 
 '''
