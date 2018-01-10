@@ -501,47 +501,23 @@ def compute_mode_3_ft(years):
 '''
 def flattened_svd_embedding(years):
 
-
   #check for svd folder
   # check if places for stdout_files existt
   path = os.path.join(os.getcwd(), 'flattened_svd')
   if not os.path.exists(path):
     os.makedirs(path)
 
-  slices = []
-  wordIDs = []
+  slices, _ = get_slices(years)
 
-  for year in years:
-    #get PMI matrix
-    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
-    files = os.listdir(os.getcwd())
-    file = filter(lambda x: re.match(pattern, x), files)[0]
-    print file
-    name, _ = file.split('.')
+  U, sigma,B = w2v.flattened_svd(slices,50)
 
-    PMI, IDs = read_in_pmi(file, display_progress=True)
-
-    slices.append(PMI)
-    wordIDs.append(IDs)
-
-  print "loaded in files"
-
-  #align tensor slices
-  shared_ID = normalize_wordIDs(slices,wordIDs)
-
-  print "aligned tensor slices"
-
-  with open("wordIDs/wordPairPMI_" + str(years[0]) +
-                '_to_' + str(years[-1]) + 'wordIDs.pickle', 'wb') as handle:
-    pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
-  print "saved IDs"
-
-  U, sigma,B = w2v.flattened_svd(slices,50,save_results=True)
-
-  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])+'_U.npy',U)
-  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])+'_sigma.npy',
+  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[
+                                                         -1])+'_FSVD_U.npy',U)
+  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[
+                                                         -1])+'_FSVD_sigma.npy',
           sigma)
-  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])+'_B.npy',B)
+  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[
+                                                         -1])+'_FSVD_B.npy',B)
   print "saved files"
 
 
