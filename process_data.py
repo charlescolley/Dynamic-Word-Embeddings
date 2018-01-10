@@ -727,7 +727,7 @@ def test_word_embedding():
   get_type = True
   while get_type:
     type = raw_input("Which embedding do you want to load?:\n"
-                     +"tSNE,svdU, tfU\n")
+                     +"tSNE,svdU, tfU, Fsvd\n")
     if type == "tSNE":
       subfolder = "/tSNE/"
       postfix = "svdU_TSNE."
@@ -740,14 +740,21 @@ def test_word_embedding():
       subfolder = "tf_embedding/"
       postfix = ".+tfU."
       get_type = False
+    elif type == "Fsvd":
+      subfolder = "flattened_svd/"
+      postfix = ".+FSVD_U."
+      get_type = False
     else:
       print "invalid embedding choice"
 
   get_year = True
   while get_year:
 
-    if subfolder == "tf_embedding/":
-      pattern = re.compile(".*tfU.*")
+    if subfolder == "tf_embedding/" or subfolder == "flattened_svd/":
+      if subfolder == "tf_embedding/" :
+        pattern = re.compile(".*tfU.*")
+      else:
+        pattern = re.compile(".*FSVD_U.npy")
       files = os.listdir(os.getcwd() + '/' + subfolder)
       #find all tfU files
       files = filter(lambda x: re.match(pattern,x), files)
@@ -797,14 +804,31 @@ def test_word_embedding():
       B_file = list(file) #loads the B tensor TODO: Make this more robust
       B_file[-5] = 'B'
       core_tensor = np.load(subfolder + "".join(B_file))
+  elif type == "Fsvd":
+    B_file = list(file)
+    B_file[-5] = 'B'
+    core_tensor = np.load(subfolder + "".join(B_file))
 
   n = embedding.shape[0]
 
   #need to load in multiple ID_dictionaries if loading tf_embeddings
-  if subfolder == "tf_embedding/":
-    #find years associated with embedding
-    start_year = file[12:16]
-    end_year = file[20:24]
+  if type == "tfU" or subfolder == "Fsvd":
+    if type == "tfU":
+      #find years associated with embedding
+      start_year = file[12:16]
+      end_year = file[20:24]
+    else:
+      start_year = file[:4]
+      end_year = file[8:12]
+
+    #load in shared word IDs
+    pattern = re.compile("[\w]*PMI_" + start_year +"_to_"+ end_year +
+                         "wordIDs.pickle")
+    files = os.listdir(os.getcwd() + "/wordIDs")
+    IDs_file = filter(lambda x: re.match(pattern, x), files)
+    with open("wordIDs/" + IDs_file[0], 'rb') as handle:
+      indices = pickle.load(handle)
+    indices = {value: key for key, value in indices.iteritems()}
 
     load_new_year = True
     while load_new_year:
@@ -814,16 +838,13 @@ def test_word_embedding():
       if year =="quit":
         load_new_year = False
       else:
-        pattern = re.compile("[\w]*PMI_" + year + "wordIDs" + ".")
-        files = os.listdir(os.getcwd() + "/wordIDs")
-        IDs_file = filter(lambda x: re.match(pattern, x), files)
-        with open("wordIDs/" + IDs_file[0], 'rb') as handle:
-          indices = pickle.load(handle)
-        indices = {value: key for key, value in indices.iteritems()}
-
         #form embedding
         core_tensor_index = int(year) - int(start_year)
-        new_embedding = np.dot(embedding,core_tensor[core_tensor_index])
+        if type = "Fsvd":
+          semi_def_U = w2v.make_semi_definite(core_tensor[core_tensor_index])
+          new_embedding = np.dot(embedding,semi_def_U)
+        else:
+          new_embedding = np.dot(embedding,core_tensor[core_tensor_index])
         normalize(new_embedding)
 
         get_k = True
@@ -835,8 +856,6 @@ def test_word_embedding():
           else:
             get_k = False
         word_embedding_arithmetic(new_embedding, indices, k)
-
-
   else:
     #load indices
     pattern = re.compile("[\w]*PMI_" + year+ "wordIDs" + ".")
