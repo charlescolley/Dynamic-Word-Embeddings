@@ -812,7 +812,7 @@ def test_word_embedding():
   n = embedding.shape[0]
 
   #need to load in multiple ID_dictionaries if loading tf_embeddings
-  if type == "tfU" or subfolder == "Fsvd":
+  if type == "tfU" or type == "Fsvd":
     if type == "tfU":
       #find years associated with embedding
       start_year = file[12:16]
@@ -826,6 +826,7 @@ def test_word_embedding():
                          "wordIDs.pickle")
     files = os.listdir(os.getcwd() + "/wordIDs")
     IDs_file = filter(lambda x: re.match(pattern, x), files)
+    print IDs_file,files
     with open("wordIDs/" + IDs_file[0], 'rb') as handle:
       indices = pickle.load(handle)
     indices = {value: key for key, value in indices.iteritems()}
@@ -840,9 +841,10 @@ def test_word_embedding():
       else:
         #form embedding
         core_tensor_index = int(year) - int(start_year)
-        if type = "Fsvd":
-          semi_def_U = w2v.make_semi_definite(core_tensor[core_tensor_index])
-          new_embedding = np.dot(embedding,semi_def_U)
+        if type == "Fsvd":
+          semi_def_B = w2v.make_semi_definite(core_tensor[core_tensor_index])
+          vals, vecs = np.linalg.eig(semi_def_B)
+          new_embedding = np.dot(embedding,)
         else:
           new_embedding = np.dot(embedding,core_tensor[core_tensor_index])
         normalize(new_embedding)

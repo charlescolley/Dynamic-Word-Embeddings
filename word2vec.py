@@ -19,33 +19,18 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  n = 9
-  max_cores = 3
-  A = sp.dok_matrix((n,n))
-  B = sp.dok_matrix((n,n))
-  C = sp.dok_matrix((n,n))
-  D = sp.dok_matrix((n,n))
-  count = 1
-  for t in range(4):
-    for i in range(n):
-      for j in range(n):
-        if t == 1:
-          B[i,j] = count
-        elif t == 2:
-          C[i, j] = count
-        elif t == 3:
-          D[i,j] = count
-        else:
-          A[i,j] = count
-        count += 1
-  slices = [A,B,C,D]
-  array = mode_3_fft(slices,max_cores)
+  n = 10
+  X = np.random.rand(n,n)
+  vals = np.random.uniform(-1, 1, n)
+  print "found {} negative eigenvalues".format(len(filter(lambda x: x < 0,
+                                                          vals)))
+  A = np.dot(X,np.dot(np.diag(vals),np.linalg.inv(X)))
+  semi_A = make_semi_definite(A)
 
-  shape = array.shape
-  for i in xrange(shape[0]):
-    for j in xrange(shape[1]):
-      for t in xrange(shape[2]):
-        print "{},{},{} = {}".format(i,j,t,array[i,j,t])
+  vals, vecs = np.linalg.eig(semi_A)
+  print "found {} negative eigenvalues".format(len(filter(lambda x: x < 0,
+                                                          vals)))
+
 
 '''-----------------------------------------------------------------------------
     make_semi_definite(A)
@@ -70,12 +55,11 @@ def make_semi_definite(A):
   else:
     vals, vecs = np.linalg.eig(A)
 
-  pos_indices = []
   for (index, eigenvalue) in enumerate(vals):
-    if eigenvalue >= 0:
-      pos_indices.append(index)
+    if eigenvalue < 0:
+      vals[index] = 0
 
-  return np.dot(vecs[:,pos_indices],vecs[:,pos_indices].T)
+  return np.dot(vecs,np.dot(np.diag(vals),vecs.T))
 
 
 def make_test_tensor():
