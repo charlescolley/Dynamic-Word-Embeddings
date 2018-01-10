@@ -51,13 +51,8 @@ def compute_fft(tensor_tubes,fft_P,col_offset):
         fft = f.fft(tensor_tubes[j][i,:].todense())[0]
         #b/c data is real elems 0, 1:ceil((T-1)/2) are unique
         for k in xrange(T):
-          print "core {}, ({},{}) = {}, col_offset = {}".format(core,i,
-                                                                col_offset + j,
-                                                                fft[k],
-                                                      col_offset)
           #factor of 2 accounts for additional mode-3 elements for the complex
           # components
-          print 2*T * (n * i + (col_offset + j)) + 2*k
           fft_P[2*T * (n * i + (col_offset + j)) + 2*k] = fft[k].real
           fft_P[2*T * (n * i + (col_offset + j)) + 2*k+1] = fft[k].imag
 
