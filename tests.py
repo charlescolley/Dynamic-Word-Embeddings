@@ -60,7 +60,7 @@ class TestClass:
 
 
 
-def normalize_wordIDs_test()
+def normalize_intersection_wordIDs_test():
   A = sp.dok_matrix((5, 5))
   B = sp.dok_matrix((5, 5))
 
@@ -92,3 +92,35 @@ def normalize_wordIDs_test()
   for matrix in matrix_list:
     print matrix.todense()
   print final_dict
+
+
+def normalize_union_wordIDs_test():
+  n = 5
+  A = sp.dok_matrix((n,n))
+  B = sp.dok_matrix((n,n))
+  C = sp.dok_matrix((n,n))
+
+  val = 0
+  for t in range(3):
+    for i in range(n):
+      for j in range(n):
+        if t == 0:
+          A[i,j] = val
+          val += 1
+        elif t == 1:
+          B[i,j] = val
+          val += 1
+        else:
+          C[i,j] = val
+          val += 1
+
+  dict_a = {'apple':0,'cat':1,'sandwich':2,'anger':3,"selfie":4}
+  dict_b = {'cat':0,'max':1,'chuckle':2,'anger':3,'soda':4}
+  dict_c = {'cat':0,'sandwich':1,'charlie':2,'soda':3,'selfie':4}
+  P = [A,B,C]
+  IDs = normalize_wordIDs(P,[dict_a,dict_b,dict_c])
+
+  print IDs
+
+  for slice in P:
+    print slice.todense()

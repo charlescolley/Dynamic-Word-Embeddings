@@ -1,6 +1,7 @@
 import scipy.sparse as sp
 from time import clock
 from math import sqrt
+from cmath import sqrt
 from sys import argv
 import matplotlib.pylab as plt
 import numpy as np
@@ -36,7 +37,35 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  compute_mode_3_ft([2000,2001])
+  n = 5
+  A = sp.dok_matrix((n,n))
+  B = sp.dok_matrix((n,n))
+  C = sp.dok_matrix((n,n))
+
+  val = 0
+  for t in range(3):
+    for i in range(n):
+      for j in range(n):
+        if t == 0:
+          A[i,j] = val
+          val += 1
+        elif t == 1:
+          B[i,j] = val
+          val += 1
+        else:
+          C[i,j] = val
+          val += 1
+
+  dict_a = {'apple':0,'cat':1,'sandwich':2,'anger':3,"selfie":4}
+  dict_b = {'cat':0,'max':1,'chuckle':2,'anger':3,'soda':4}
+  dict_c = {'cat':0,'sandwich':1,'charlie':2,'soda':3,'selfie':4}
+  P = [A,B,C]
+  IDs = normalize_wordIDs(P,[dict_a,dict_b,dict_c])
+
+  print IDs
+
+  for slice in P:
+    print slice.todense()
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -321,6 +350,9 @@ def filter_up_to_kth_largest(matrix, k):
         the dictionaries linking the words in the PMI matrices to their 
         respective indices for each time slice. Here the keys are the strings 
         and the values are the indices.   
+      take_union - optional (boolean)
+        an optional boolean function which will indicate whether or not to 
+        take the union of all the words, or the intersection.
     Returns:
       shared_wordIDs - (dictionary)
         the final dictionary linking the indices of all the time slices to 
@@ -332,38 +364,73 @@ def filter_up_to_kth_largest(matrix, k):
       kth largest word may be useful functionality to improve the quality of 
       the embeddings.
 -----------------------------------------------------------------------------'''
-def normalize_wordIDs(P_slices, wordIDs):
+def normalize_wordIDs(P_slices, wordIDs, take_union = True):
+  if take_union:
 
-  #find the intersection of all the words
-  common_words = set.intersection(
-                   *map(lambda x: set(x),  #convert to sets
-                    map(lambda x: x.keys(), wordIDs))) #get all words
+    #find the permutation to apply to each matrix slice
 
-  first_slice = True
-  #remove all rows and columns for terms not in the common_words set
-  for (t,slice) in enumerate(P_slices):
+    shared_wordIDs = wordIDs[0] #start with the ordering of the first slice
+    word_count = len(shared_wordIDs)
 
-    if first_slice:
-      valid_indices = map(lambda (_, value): value,
-                          filter(lambda (key, _): key in common_words,
-                                 wordIDs[t].iteritems()))
-      #create shared_wordIDs and remap indices if on first slice
-      word_count= 0
-      shared_wordIDs = {}
-
-      for (key, val) in sorted(wordIDs[0].items(), key=lambda (x, y): y):
-        if key in common_words:
-          shared_wordIDs[word_count] = key
+    T = len(wordIDs)
+    for t in range(1,T):
+      for key in wordIDs[t]:
+        if key not in shared_wordIDs:
+          shared_wordIDs[key] = word_count
           word_count += 1
-      first_slice = False
-      P_slices[t] = slice[valid_indices][:, valid_indices]
-    else:
-      #permute to align with the first slice
-      permutation = []
-      for i in xrange(word_count):
-        permutation.append(wordIDs[t][shared_wordIDs[i]])
-      # eliminate invalid rows and columns
+
+
+    #apply padding
+    for t in range(T):
+      P_slices[t].resize((word_count,word_count))
+
+    #permute each matrix slice
+    for t in range(1,T):
+      permutation = range(word_count)
+
+      #notes where padding columns starts
+      padding_index = len(wordIDs[t])
+
+      for word,index in shared_wordIDs.iteritems():
+        if word in wordIDs[t]:
+          permutation[index] = wordIDs[t][word]
+        else:
+          permutation[index] = padding_index
+          padding_index += 1
+
       P_slices[t] = P_slices[t][permutation][:, permutation]
+
+  else:
+    #find the intersection of all the words
+    common_words = set.intersection(
+                     *map(lambda x: set(x),  #convert to sets
+                      map(lambda x: x.keys(), wordIDs))) #get all words
+
+    first_slice = True
+    #remove all rows and columns for terms not in the common_words set
+    for (t,slice) in enumerate(P_slices):
+
+      if first_slice:
+        valid_indices = map(lambda (_, value): value,
+                            filter(lambda (key, _): key in common_words,
+                                   wordIDs[t].iteritems()))
+        #create shared_wordIDs and remap indices if on first slice
+        word_count= 0
+        shared_wordIDs = {}
+
+        for (key, val) in sorted(wordIDs[0].items(), key=lambda (x, y): y):
+          if key in common_words:
+            shared_wordIDs[word_count] = key
+            word_count += 1
+        first_slice = False
+        P_slices[t] = slice[valid_indices][:, valid_indices]
+      else:
+        #permute to align with the first slice
+        permutation = []
+        for i in xrange(word_count):
+          permutation.append(wordIDs[t][shared_wordIDs[i]])
+        # eliminate invalid rows and columns
+        P_slices[t] = P_slices[t][permutation][:, permutation]
 
 
   return shared_wordIDs
@@ -432,7 +499,6 @@ def word_embedding_arithmetic(embedding, indices, k):
         for neighbor in neighbors:
           print neighbor
 
-
 '''-----------------------------------------------------------------------------
     get_slices(years)
       This function takes in a list of years to be loaded in and finds the PMI
@@ -496,9 +562,8 @@ def compute_mode_3_ft(years):
   np.save("fourier_transorms/"+file_name,transformed_slices)
   print "saved files"
 
-
-'''
-'''
+'''-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------'''
 def flattened_svd_embedding(years):
 
   #check for svd folder
@@ -842,9 +907,14 @@ def test_word_embedding():
         #form embedding
         core_tensor_index = int(year) - int(start_year)
         if type == "Fsvd":
-          semi_def_B = w2v.make_semi_definite(core_tensor[core_tensor_index])
+#         semi_def_B = w2v.make_semi_definite(core_tensor[core_tensor_index])
+          semi_def_B = core_tensor[core_tensor_index]
           vals, vecs = np.linalg.eig(semi_def_B)
-          new_embedding = np.dot(embedding,)
+          #cut off round off error
+#         vals = np.array(map(lambda x: 0 if abs(x) < 1e-10 else x, vals))
+          sqrt_val = map(lambda x: sqrt(x),vals)
+          sqrt_B = np.dot(vecs,np.diag(sqrt_val))
+          new_embedding = np.dot(embedding,sqrt_B)
         else:
           new_embedding = np.dot(embedding,core_tensor[core_tensor_index])
         normalize(new_embedding)
@@ -969,7 +1039,7 @@ def k_nearest_neighbors(word, k, embedding, indices, use_embedding=False):
                 range(n) if use_embedding else
                 filter(lambda x: x != word_index,range(n)))
   comes_before = lambda x,y: np.linalg.norm(x[1] - word_position) < \
-                             np.linalg.norm(y[1] - word_position)   
+                             np.linalg.norm(y[1] - word_position)
   results = partial_insertion_sort(to_sort,comes_before,k)
   return map(lambda x: (x[0],np.linalg.norm(x[1] - word_position)),results)
 
