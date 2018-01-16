@@ -37,36 +37,10 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  n = 5
-  A = sp.dok_matrix((n,n))
-  B = sp.dok_matrix((n,n))
-  C = sp.dok_matrix((n,n))
-
-  val = 0
-  for t in range(3):
-    for i in range(n):
-      for j in range(n):
-        if t == 0:
-          A[i,j] = val
-          val += 1
-        elif t == 1:
-          B[i,j] = val
-          val += 1
-        else:
-          C[i,j] = val
-          val += 1
-
-  dict_a = {'apple':0,'cat':1,'sandwich':2,'anger':3,"selfie":4}
-  dict_b = {'cat':0,'max':1,'chuckle':2,'anger':3,'soda':4}
-  dict_c = {'cat':0,'sandwich':1,'charlie':2,'soda':3,'selfie':4}
-  P = [A,B,C]
-  IDs = normalize_wordIDs(P,[dict_a,dict_b,dict_c])
-
-  print IDs
-
-  for slice in P:
-    print slice.todense()
-
+  pmi, ID = read_in_pmi('wordPairPMI_2000.csv')
+  print pmi
+  print len(ID)
+  
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
       This function reads in precomputed tSNE .npy files in the /tSNE folder 
@@ -205,111 +179,121 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
                 max_words = None, display_progress = False):
 
 
+  #check if scipy file exists
+  scipy_filename = "scipy_files/" + filename[:-3] + 'npz'
+  if os.path.isfile(scipy_filename) and max_words == None:
+    pmi = sp.load_npz(scipy_filename)
+    pmi.todok()
 
-  f = open(filename,"r")
-  f.next() # skip word, context, pmi line
-  total_edge_count = 0
-  clean_indices = 0
-  edges = {}
-  i_max = -1
-  j_max = -1
-  if max_words == None:
-    max_words = float("inf")
+    #load in word ID
+    ID_filename = filename[:-3] + "wordIDs.pickle"
+    used_indices = pickle.load(open("wordIDs/" + ID_filename,'r'))
 
-
-  word_indices = read_in_word_index(return_scaled_count)
-
-  '''
-  the count is over all words over all times
-  #compute word count TODO: VALIDATE SUM
-  if return_scaled_count:
-    word_count = reduce(lambda x,key: x + word_indices[key][1],word_indices)
-  '''
-  if display_progress:
-    print 'Read in word indices'
-  new_indices = {}
-
-  profile = False
-  if profile:
-    pr = cProfile.Profile()
-    pr.enable()
-
-  #count the edges in the file, dimensions of PPMI matrix, and reassign indices.
-  for line in f:
-    edge = line.split(',')
-
-    #reassign new indices to prevent empty submatrices in pmi
-    word_ID = int(edge[0])
-    context_ID = int(edge[1])
-
-    word = word_indices[word_ID] if not return_scaled_count else\
-           word_indices[word_ID][0]
-    context = word_indices[context_ID] if not return_scaled_count else\
-              word_indices[context_ID][0]
+  else:
+    f = open(filename,"r")
+    f.next() # skip word, context, pmi line
+    total_edge_count = 0
+    clean_indices = 0
+    edges = {}
+    i_max = -1
+    j_max = -1
+    if max_words == None:
+      max_words = float("inf")
 
 
-    if word not in new_indices:
-      new_indices[word] = clean_indices
-      clean_indices += 1
+    word_indices = read_in_word_index(return_scaled_count)
 
-    if context not in new_indices:
-      new_indices[context] = clean_indices
-      clean_indices += 1
-
-    if new_indices[context] < max_words and new_indices[word] < max_words:
-      edge_val = np.float(edge[2])
-      if return_scaled_count:
-        edge_val =  np.exp(edge_val)* \
-                    word_indices[word_ID][1] * word_indices[context_ID][1]
-
-      edges[total_edge_count] = [new_indices[word], new_indices[context],
-                                 edge_val]
-      #check if new indices are largest row or column found
-      if new_indices[word] > i_max:
-        i_max = new_indices[word]
-
-      if new_indices[context] > j_max:
-        j_max = new_indices[context]
-
-      total_edge_count += 1
-
-  f.close()
-
-  if display_progress:
-    print "counted {} edges over {} by {} words"\
-      .format(total_edge_count, i_max, j_max)
-
-
-  # initialize counts for updating user as file loads
-  if display_progress:
-    update_frequency = total_edge_count / UPDATE_FREQUENCY_CONSTANT
-    edge_count = 0
-
-  shape = (i_max+1,j_max+1)
-  #initialize sparse matrix
-  pmi = sp.dok_matrix(shape)
-
-  for i in xrange(total_edge_count):
-    pmi[edges[i][0], edges[i][1]] = edges[i][2]
+    '''
+    the count is over all words over all times
+    #compute word count TODO: VALIDATE SUM
+    if return_scaled_count:
+      word_count = reduce(lambda x,key: x + word_indices[key][1],word_indices)
+    '''
     if display_progress:
-      edge_count += 1
-      if edge_count % update_frequency == 0:
-        print "{}% complete, {} edges read in"\
-          .format((edge_count/float(total_edge_count))*100,
-                  edge_count)
+      print 'Read in word indices'
+    new_indices = {}
+
+    profile = False
+    if profile:
+      pr = cProfile.Profile()
+      pr.enable()
+
+    #count the edges in the file, dimensions of PPMI matrix, and reassign indices.
+    for line in f:
+      edge = line.split(',')
+
+      #reassign new indices to prevent empty submatrices in pmi
+      word_ID = int(edge[0])
+      context_ID = int(edge[1])
+
+      word = word_indices[word_ID] if not return_scaled_count else\
+             word_indices[word_ID][0]
+      context = word_indices[context_ID] if not return_scaled_count else\
+                word_indices[context_ID][0]
 
 
-  used_indices = \
-    {key:value for key, value in new_indices.iteritems() if value < max_words}
+      if word not in new_indices:
+        new_indices[word] = clean_indices
+        clean_indices += 1
 
-  if profile:
-    pr.disable()
-    pr.print_stats(sort='time')
+      if context not in new_indices:
+        new_indices[context] = clean_indices
+        clean_indices += 1
+
+      if new_indices[context] < max_words and new_indices[word] < max_words:
+        edge_val = np.float(edge[2])
+        if return_scaled_count:
+          edge_val =  np.exp(edge_val)* \
+                      word_indices[word_ID][1] * word_indices[context_ID][1]
+
+        edges[total_edge_count] = [new_indices[word], new_indices[context],
+                                   edge_val]
+        #check if new indices are largest row or column found
+        if new_indices[word] > i_max:
+          i_max = new_indices[word]
+
+        if new_indices[context] > j_max:
+          j_max = new_indices[context]
+
+        total_edge_count += 1
+
+    f.close()
+
+    if display_progress:
+      print "counted {} edges over {} by {} words"\
+        .format(total_edge_count, i_max, j_max)
+
+
+    # initialize counts for updating user as file loads
+    if display_progress:
+      update_frequency = total_edge_count / UPDATE_FREQUENCY_CONSTANT
+      edge_count = 0
+
+    shape = (i_max+1,j_max+1)
+    #initialize sparse matrix
+    pmi = sp.dok_matrix(shape)
+
+    for i in xrange(total_edge_count):
+      pmi[edges[i][0], edges[i][1]] = edges[i][2]
+      if display_progress:
+        edge_count += 1
+        if edge_count % update_frequency == 0:
+          print "{}% complete, {} edges read in"\
+            .format((edge_count/float(total_edge_count))*100,
+                    edge_count)
+
+
+    used_indices = \
+      {key:value for key, value in new_indices.iteritems() if value < max_words}
+
+    if profile:
+      pr.disable()
+      pr.print_stats(sort='time')
 
   return pmi, used_indices
 
 '''-----------------------------------------------------------------------------
-    convert_to_numpy(years)
+    convert_to_scipy(years)
       This function takes in a list of years, loads in the appropriate PMI 
       matrix slices and converts the files into scipy coo sparse matrix files 
       and stores them in the appropriate folder. 
@@ -318,7 +302,7 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
         This is the list of years corresponding to the PMI slices, assumed 
         that if an integer is listed here, then it must exist as a file. 
 -----------------------------------------------------------------------------'''
-def convert_to_numpy(years):
+def convert_to_scipy(years):
 
   cwd = os.getcwd()
   #check for a numpy_file folder
@@ -330,7 +314,7 @@ def convert_to_numpy(years):
   slices , _ = get_slices(years,False)
 
   for t, slice in enumerate(slices):
-    file_name = "numpy_files/wordPairPMI_" + str(years[t]) + ".spz"
+    file_name = "scipy_files/wordPairPMI_" + str(years[t]) + ".npz"
     sp.save_npz(file_name,slice.tocoo())
 
 '''-----------------------------------------------------------------------------
@@ -552,7 +536,6 @@ def get_slices(years,normalize = True):
     pattern = re.compile("[\w]*PMI_" + str(year) + ".")
     files = os.listdir(os.getcwd())
     file = filter(lambda x: re.match(pattern, x), files)[0]
-    print file
     name, _ = file.split('.')
 
     PMI, IDs = read_in_pmi(file, display_progress=True)
