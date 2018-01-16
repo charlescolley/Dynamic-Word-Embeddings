@@ -96,7 +96,6 @@ def load_tSNE_word_cloud(year):
   print embedding
   w2v.plot_embeddings(embedding, indices)
 
-
 '''-----------------------------------------------------------------------------
     sequetial_svd_tSNE()
       This funciton will process all of the truncated svd factorizations and 
@@ -312,8 +311,8 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
 '''-----------------------------------------------------------------------------
     convert_to_numpy(years)
       This function takes in a list of years, loads in the appropriate PMI 
-      matrix slices and converts the files into numpy files and stores them 
-      in the appropriate folder. 
+      matrix slices and converts the files into scipy coo sparse matrix files 
+      and stores them in the appropriate folder. 
     Input:
       years - list of ints
         This is the list of years corresponding to the PMI slices, assumed 
@@ -323,7 +322,7 @@ def convert_to_numpy(years):
 
   cwd = os.getcwd()
   #check for a numpy_file folder
-  path = os.path.join(cwd, 'numpy_files')
+  path = os.path.join(cwd, 'scipy_files')
   if not os.path.exists(path):
     os.makedirs(path)
 
@@ -331,8 +330,8 @@ def convert_to_numpy(years):
   slices , _ = get_slices(years,False)
 
   for t, slice in enumerate(slices):
-    file_name = "numpy_files/wordPairPMI_" + str(years[t]) + ".npy"
-    np.save(file_name,slice)
+    file_name = "numpy_files/wordPairPMI_" + str(years[t]) + ".spz"
+    sp.save_npz(file_name,slice.tocoo())
 
 '''-----------------------------------------------------------------------------
     filter_up_to_kth_largest(matrix, k)
