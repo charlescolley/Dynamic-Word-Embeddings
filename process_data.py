@@ -310,6 +310,31 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   return pmi, used_indices
 
 '''-----------------------------------------------------------------------------
+    convert_to_numpy(years)
+      This function takes in a list of years, loads in the appropriate PMI 
+      matrix slices and converts the files into numpy files and stores them 
+      in the appropriate folder. 
+    Input:
+      years - list of ints
+        This is the list of years corresponding to the PMI slices, assumed 
+        that if an integer is listed here, then it must exist as a file. 
+-----------------------------------------------------------------------------'''
+def convert_to_numpy(years):
+
+  cwd = os.getcwd()
+  #check for a numpy_file folder
+  path = os.path.join(cwd, 'numpy_files')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  #load in the slices to convert
+  slices , _ = get_slices(years,False)
+
+  for t, slice in enumerate(slices):
+    file_name = "numpy_files/wordPairPMI_" + str(years[t]) + ".npy"
+    np.save(file_name,slice)
+
+'''-----------------------------------------------------------------------------
     filter_up_to_kth_largest(matrix, k)
       This function takes in a sparse dok matrix and returns a sparse csr 
       matrix with only the kth largest non-zeros in the array.
@@ -509,6 +534,9 @@ def word_embedding_arithmetic(embedding, indices, k):
     Input:
       years - (list of ints)
         the list of years to load in 
+      normalize- (optional bool)
+        a bool indicating whether or not to normalize the tensor slices. If 
+        this is false, then shared_ID will return a None. 
     Returns:
       slices - (list of sparse dok matrices)
         the list of PMI matrices associated with the desired years 
@@ -516,7 +544,7 @@ def word_embedding_arithmetic(embedding, indices, k):
         a dictionary associating the indices in the tensor to the words of 
         the PMI matrices. keys are the indices and values are the strings.
 -----------------------------------------------------------------------------'''
-def get_slices(years):
+def get_slices(years,normalize = True):
   slices = []
   wordIDs = []
 
@@ -534,19 +562,21 @@ def get_slices(years):
     wordIDs.append(IDs)
 
   print "loaded in files"
+  if normalize:
+    shared_ID = normalize_wordIDs(slices, wordIDs)
+    print "aligned tensor slices"
 
-  shared_ID = normalize_wordIDs(slices, wordIDs)
-  print "aligned tensor slices"
+    file_name = "wordIDs/wordPairPMI_" + str(years[0]) +'_to_' + \
+                                         str(years[-1]) + 'wordIDs.pickle'
+    #save shared word IDs if doesn't exist
+    if not os.path.exists(file_name):
+      # align tensor slices
 
-  file_name = "wordIDs/wordPairPMI_" + str(years[0]) +'_to_' + \
-                                       str(years[-1]) + 'wordIDs.pickle'
-  #save shared word IDs if doesn't exist
-  if not os.path.exists(file_name):
-    # align tensor slices
-
-    with open(file_name, 'wb') as handle:
-      pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print "saved IDs"
+      with open(file_name, 'wb') as handle:
+        pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
+      print "saved IDs"
+  else:
+    shared_ID = None
 
   return slices, shared_ID
 
