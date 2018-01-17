@@ -19,18 +19,7 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  n = 10
-  X = np.random.rand(n,n)
-  vals = np.random.uniform(-1, 1, n)
-  print "found {} negative eigenvalues".format(len(filter(lambda x: x < 0,
-                                                          vals)))
-  A = np.dot(X,np.dot(np.diag(vals),np.linalg.inv(X)))
-  semi_A = make_semi_definite(A)
-
-  vals, vecs = np.linalg.eig(semi_A)
-  print "found {} negative eigenvalues".format(len(filter(lambda x: x < 0,
-                                                          vals)))
-
+  print "hello world"
 
 '''-----------------------------------------------------------------------------
     make_semi_definite(A)
@@ -146,32 +135,36 @@ def plot_embeddings(embedding, words =None):
   py.plot(fig,filename='embedding.html')
 
 '''-----------------------------------------------------------------------------
-    mat_vec(matrix, vector)
-       this function produces an anonymous function to be used as a linear 
-       operator in the scipy svd routine.
+    rank_1_update(matrix, k)
+       This function takes in a sparse n,m scipy matrix A and and a real value k
+       and returns a LinearOperator which is of the form A + ones(n,m)*log(
+       k). This can be used in the scipy svds routine in order to compute 
+       add in the log rank1 update without losing the speed of a matvec in the 
+       sparse case. 
     input:
       matrix - (n x m sparse matrix)
         the pmi matrix to use to compute the word embeddings. 
       k - (int)
         the negative sample multiple factor.
     returns:
-      mat_vec - (m-vec -> n-vec)
-        an anonymous function which works as an o(m) linear operator which 
-        adds a rank 1 update to the pmi matrix.   (m - log(k))
-    notes:
-      unclear if the numpy sum function has numerical instability issues. 
+      LinearOperator(A + ones(n,m)*log(k))
+        This just istantiates an element of the 
+        scipy.sparse.linalg.LinearOperator class. Note that the mat_vec, 
+        rmat_vec functions have been designed to meet the contract 
+        established in the scipy class documentation. 
 -----------------------------------------------------------------------------'''
-def mat_vec(matrix, k):
+def rank_1_Update(matrix, k):
   logfactor = log(k)
   n = matrix.shape[0]
   m = matrix.shape[1]
   def mat_vec(v):
-    if v.shape == (n,):
-      output_vec = np.array(m)
-    elif v.shape == (n,1):
-      output_vec = np.array(m,1)
+    if v.shape == (m,):
+      output_vec = np.empty(n)
+    elif v.shape == (m,1):
+      output_vec = np.empty((n,1))
     else:
-      raise "non-vector passed into mat_vec, object of shape {}".format(v.shape)
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
 
     rank_1_update = v.sum() * logfactor
     for (i,Av_i) in enumerate(matrix * v):
@@ -180,11 +173,12 @@ def mat_vec(matrix, k):
 
   def rmat_vec(v):
     if v.shape == (n,):
-      output_vec = np.array(m)
-    elif v.shape == (1, n):
-      output_vec = np.array(1, m)
+      output_vec = np.empty(m)
+    elif v.shape == (n, 1):
+      output_vec = np.empty((m, 1))
     else:
-      raise "non-vector passed into mat_vec, object of shape {}".format(v.shape)
+      raise ValueError("non-vector passed into mat_vec, object of shape {" \
+                       "}".format(v.shape))
 
     rank_1_update = v.sum() * logfactor
     for (i, vTA_i) in enumerate(matrix.T * v):
@@ -192,6 +186,20 @@ def mat_vec(matrix, k):
     return output_vec
 
   return LinearOperator((n, m), mat_vec, rmatvec=rmat_vec)
+
+def mat_vec(matrix,v,k,n,m):
+  if v.shape == (m,):
+    output_vec = np.empty(n)
+  elif v.shape == (m,1):
+    output_vec = np.empty((n,1))
+  else:
+    raise ValueError("non-vector passed into mat_vec, object of shape {"
+                     "}".format(v.shape))
+
+  rank_1_update = v.sum() * log(k)
+  for (i,Av_i) in enumerate(matrix * v):
+    output_vec[i] = Av_i + rank_1_update
+  return output_vec
 
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
