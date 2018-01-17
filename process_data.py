@@ -37,9 +37,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  pmi, ID = read_in_pmi('wordPairPMI_2000.csv')
-  print pmi
-  print len(ID)
+  get_slices([1990,1991])
   
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -182,14 +180,18 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   #check if scipy file exists
   scipy_filename = "scipy_files/" + filename[:-3] + 'npz'
   if os.path.isfile(scipy_filename) and max_words == None:
+    print "loading in " + scipy_filename
     pmi = sp.load_npz(scipy_filename)
     pmi = pmi.todok()
 
     #load in word ID
     ID_filename = filename[:-4] + "wordIDs.pickle"
     used_indices = pickle.load(open("wordIDs/" + ID_filename,'r'))
-
+    
+    #invert the dictionary to be consistent with function contract
+    used_indices = {value:key for key,value in used_indices.iteritems()}
   else:
+    print "loading in " + filename
     f = open(filename,"r")
     f.next() # skip word, context, pmi line
     total_edge_count = 0
@@ -382,7 +384,7 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
 
     T = len(wordIDs)
     for t in range(1,T):
-      for key in wordIDs[t]:
+      for key in wordIDs[t].iterkeys():
         if key not in shared_wordIDs:
           shared_wordIDs[key] = word_count
           word_count += 1
@@ -407,7 +409,9 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
           permutation[index] = padding_index
           padding_index += 1
 
+
       P_slices[t] = P_slices[t][permutation][:, permutation]
+      print "finished applying t={} permutation".format(t)
 
   else:
     #find the intersection of all the words
