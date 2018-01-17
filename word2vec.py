@@ -3,7 +3,7 @@ import numpy as np
 from time import clock
 from numpy.linalg import lstsq
 from math import log, floor, ceil
-from scipy.sparse.linalg import svds
+from scipy.sparse.linalg import svds, LinearOperator
 import scipy.sparse as sp
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
@@ -165,9 +165,33 @@ def mat_vec(matrix, k):
   logfactor = log(k)
   n = matrix.shape[0]
   m = matrix.shape[1]
-  mat_vec = lambda v: (matrix * v) + (np.ones(n) * v.sum() * logfactor)
-  rmat_vec = lambda v: (matrix.t * v) + (np.ones(m) * v.sum() * logfactor)
-  return linearoperator((n, m), mat_vec, rmatvec=rmat_vec)
+  def mat_vec(v):
+    if v.shape == (n,):
+      output_vec = np.array(m)
+    elif v.shape == (n,1):
+      output_vec = np.array(m,1)
+    else:
+      raise "non-vector passed into mat_vec, object of shape {}".format(v.shape)
+
+    rank_1_update = v.sum() * logfactor
+    for (i,Av_i) in enumerate(matrix * v):
+      output_vec[i] = Av_i + rank_1_update
+    return output_vec
+
+  def rmat_vec(v):
+    if v.shape == (n,):
+      output_vec = np.array(m)
+    elif v.shape == (1, n):
+      output_vec = np.array(1, m)
+    else:
+      raise "non-vector passed into mat_vec, object of shape {}".format(v.shape)
+
+    rank_1_update = v.sum() * logfactor
+    for (i, vTA_i) in enumerate(matrix.T * v):
+      output_vec[i] = vTA_i + rank_1_update
+    return output_vec
+
+  return LinearOperator((n, m), mat_vec, rmatvec=rmat_vec)
 
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
