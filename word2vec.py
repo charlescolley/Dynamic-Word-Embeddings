@@ -283,7 +283,6 @@ def block_partitioned_model(group_word_counts):
   return pmi_matrix, word_ids
 
 
-
 '''-----------------------------------------------------------------------------
     tensorflow_embedding(p_list, lambda1, lambda2, d)
       this function uses the tensorflow library in order to compute an embedding
@@ -377,7 +376,6 @@ def tensorflow_embedding(p_list, lambda1,lambda2, d, iterations,
   u_res,b_res = sess.run([u,b])
   print b_res
   return u_res, b_res
-
 
 
 def tf_submatrix(p,i_indices, j_indices):
@@ -665,90 +663,6 @@ def evaluate_embedding(u,b,lambda1,lambda2, years,p_slices =None):
 
     return loss_val, u_grad_fro_norm, b_grad_fro_norm
 
-def frobenius_diff(a, b, c):
-  return tf.reduce_sum((tf.sparse_add(a,tf.matmul(b, c,transpose_b=True)))** 2)
-
-def tf_zip(t1_list, t2_list):
-  tf.tensorArray(
-    tf.map_fn(lambda (x,y): tf.stack([x,y]),zip(t1_list,t2_list)))
-
-def tensorflow_sgd(p, d, batch_size = 1):
-  n = p.shape[0]
-  p = p.astype(np.float32)
-  sess = tf.Session()
-
-  #initialize arrays
-  total_partitions = int(ceil(n/float(batch_size)))
-  pmi_section = tf.sparse_placeholder(dtype=tf.float32)
-  u_segments = total_partitions * [None]
-
-
-  b = tf.get_variable("b",initializer=tf.ones([d,d]))
-
-  #define a function for instantiating a sparse subtensor from p
-  def tf_p_submatrix(i,j):
-    if i != total_partitions and j != total_partitions:
-      p_submatrix = p[i * batch_size:(i + 1) * batch_size,
-                      j * batch_size:(j + 1) * batch_size]
-      shape = np.array([batch_size, batch_size])
-    elif j != total_partitions:
-      p_submatrix = p[ -(n % batch_size):,
-                      j * batch_size:(j + 1) * batch_size]
-      shape = np.array([n % batch_size, batch_size])
-    elif i != total_partitions:
-      p_submatrix = p[i * batch_size:(i + 1) * batch_size,
-                    -(n % batch_size):]
-      shape = np.array([batch_size, n % batch_size])
-    else:
-      p_submatrix = p[-(n % batch_size):, -(n % batch_size):]
-      shape = np.array([n % batch_size, n % batch_size])
-    print shape
-    return (np.array(p_submatrix.keys()),
-            np.array(p_submatrix.values()),
-            shape)
-
-
-  #create variables for rows of u
-  for i in range(total_partitions-1):
-    u_segments[i] = \
-      tf.get_variable("u_{}".format(i),
-                      initializer=tf.random_uniform([batch_size,d]))
-
-  #set the last potentially irregular elements
-  u_segments[-1] = \
-    tf.get_variable(("u_{}".format(n)),
-                     initializer = tf.random_uniform([n % batch_size,d]))
-
-  #define loss functions
-  loss_funcs = [None]*total_partitions**2
-  with tf.name_scope("loss_functions"):
-    for i in range(total_partitions):
-      for j in range(total_partitions):
-        loss_funcs[i*total_partitions + j] = \
-          frobenius_diff(pmi_section,
-                         tf.matmul(u_segments[i], b),
-                         tf.matmul(u_segments[j], b))
-
-    loss = tf.reduce_sum(loss_funcs)
-
-  with tf.name_scope("initialization"):
-    init = tf.global_variables_initializer()
-    sess.run(init)
-
-  optimizer = tf.train.GradientDescentOptimizer(.1)
-
-  print "u_segments[0] before",sess.run(u_segments[0])
-
-  for iter in range(1):
-    for i in range(total_partitions):
-      for j in range(total_partitions):
-        train = optimizer.minimize(
-          loss, var_list=[u_segments[i],u_segments[j]])
-        print i,j#,tf_p_submatrix(i,j)
-        sess.run(train,feed_dict = {pmi_section:tf_p_submatrix(i,j)})
-    print "x after",sess.run(u_segments[i])
-
-
 '''-----------------------------------------------------------------------------
     project_onto_positive_eigenspaces(a)
       this function takes in a np 2d array and returns the dense matrix with the
@@ -760,18 +674,6 @@ def project_onto_positive_eigenspaces(a):
   submatrix = vecs[np.ix_(range(a.shape[0]), positive_eigs)]
   return np.dot(submatrix,(vals[positive_eigs]*submatrix).t)
 
-'''-----------------------------------------------------------------------------
-   a tensorflow helper function used to only compute certain gradients. 
-   
-   source - https://github.com/tensorflow/tensorflow/issues/9162
------------------------------------------------------------------------------'''
-def entry_stop_gradients(target, mask):
-  mask_h = tf.logical_not(mask)
-
-  mask = tf.cast(mask, dtype=target.dtype)
-  mask_h = tf.cast(mask_h, dtype=target.dtype)
-
-  return tf.stop_gradient(mask_h * target) + mask * target
 
 '''-----------------------------------------------------------------------------
     mode_3_fft(a, max_cores)
