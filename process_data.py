@@ -183,10 +183,10 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
   scipy_filename = "scipy_files/" + filename[:-3] + 'npz'
   if os.path.isfile(scipy_filename) and max_words == None:
     pmi = sp.load_npz(scipy_filename)
-    pmi.todok()
+    pmi = pmi.todok()
 
     #load in word ID
-    ID_filename = filename[:-3] + "wordIDs.pickle"
+    ID_filename = filename[:-4] + "wordIDs.pickle"
     used_indices = pickle.load(open("wordIDs/" + ID_filename,'r'))
 
   else:
@@ -387,6 +387,7 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
           shared_wordIDs[key] = word_count
           word_count += 1
 
+    print "finished and found {} words in the union".format(word_count)
 
     #apply padding
     for t in range(T):
