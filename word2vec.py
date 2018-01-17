@@ -19,7 +19,13 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  print "hello world"
+  n = 1e6
+  m = 5e5
+  k = 2
+  d = 100
+  A = sp.random(n,m,density=.01,format='dok')
+  U,sigma,VT = svds(rank_1_Update(A,k),d)
+
 
 '''-----------------------------------------------------------------------------
     make_semi_definite(A)
@@ -187,20 +193,6 @@ def rank_1_Update(matrix, k):
 
   return LinearOperator((n, m), mat_vec, rmatvec=rmat_vec)
 
-def mat_vec(matrix,v,k,n,m):
-  if v.shape == (m,):
-    output_vec = np.empty(n)
-  elif v.shape == (m,1):
-    output_vec = np.empty((n,1))
-  else:
-    raise ValueError("non-vector passed into mat_vec, object of shape {"
-                     "}".format(v.shape))
-
-  rank_1_update = v.sum() * log(k)
-  for (i,Av_i) in enumerate(matrix * v):
-    output_vec[i] = Av_i + rank_1_update
-  return output_vec
-
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
       this function takes in a sparse matrix and returns a collection of 
@@ -314,7 +306,6 @@ def block_partitioned_model(group_word_counts):
 
   return pmi_matrix, word_ids
 
-
 '''-----------------------------------------------------------------------------
     tensorflow_embedding(p_list, lambda1, lambda2, d)
       this function uses the tensorflow library in order to compute an embedding
@@ -408,7 +399,6 @@ def tensorflow_embedding(p_list, lambda1,lambda2, d, iterations,
   u_res,b_res = sess.run([u,b])
   print b_res
   return u_res, b_res
-
 
 def tf_submatrix(p,i_indices, j_indices):
  return tf.map_fn(lambda x: tf.gather(x, j_indices), tf.gather(p, i_indices))
