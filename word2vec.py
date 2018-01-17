@@ -84,7 +84,7 @@ def svd_embedding(matrix, k):
   if k == 0:
     results = svds(matrix, k=3)
   else:
-    results = svds(mat_vec(matrix, k), k=3)
+    results = svds(rank_1_Update(matrix, k), k=3)
 
   fig = plt.figure()
   ax = fig.add_subplot(111, projection ='3d')
@@ -99,7 +99,7 @@ def svd_embedding(matrix, k):
       indices of the words in the pmi matrix to the actual words is passed 
       in, then the plot will add the words in such that scrolling over them 
       will display the words. 
-    input:
+    Input:
       embedding - (n x 3 dense matrix)
         the embeddings to be plotted, ideally from pca or t-sne
       words - (dictionary)
@@ -147,12 +147,12 @@ def plot_embeddings(embedding, words =None):
        k). This can be used in the scipy svds routine in order to compute 
        add in the log rank1 update without losing the speed of a matvec in the 
        sparse case. 
-    input:
+    Input:
       matrix - (n x m sparse matrix)
         the pmi matrix to use to compute the word embeddings. 
       k - (int)
         the negative sample multiple factor.
-    returns:
+    Returns:
       LinearOperator(A + ones(n,m)*log(k))
         This just istantiates an element of the 
         scipy.sparse.linalg.LinearOperator class. Note that the mat_vec, 
@@ -192,6 +192,29 @@ def rank_1_Update(matrix, k):
     return output_vec
 
   return LinearOperator((n, m), mat_vec, rmatvec=rmat_vec)
+
+'''-----------------------------------------------------------------------------
+    mean_center(matrix)
+      This function takes in a sparse scipy n x m matrix and returns a scipy 
+      LinearOperator which corresponds to the matrix which has been mean 
+      centered 
+        MC(A) = (I_n - ones(n,n)/n)A(I_m - ones(m,m)/m) 
+      where the I_n is the n dimensional matrix identity. 
+    Input:
+      matrix - scipy sparse matrix
+        input is assumed to be a scipy sparse matrix, the only significance 
+        of it not being scipy is that the matrix vector * overloading may 
+        fail, in which case this function can easily be updated to generalize to 
+        another matrix format
+    Returns:
+      LinearOperator class instantiation
+    Reference Note:
+      Word, graph and manifold embedding from Markov processes
+      - Tatsunori B. Hashimoto, David Alvarez-Melis, Tommi S. Jaakkola
+-----------------------------------------------------------------------------'''
+def mean_center(matrix):
+  n,m = matrix.shape
+
 
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
@@ -409,7 +432,7 @@ def tf_submatrix(p,i_indices, j_indices):
       this function uses the tensorflow to compute a shared emebedding along 
       with a core tensor b in order to embedd the data in the list of pmi 
       matrices into a d dimensional real space.
-    inputs:
+    Inputs:
       p_slices -(n x n sparse dok matrix) list
         a list of the pmi matrices the embedding will be learned from.
       lambda1 - (float)
@@ -442,7 +465,7 @@ def tf_submatrix(p,i_indices, j_indices):
       results_file - (optional str)
         the file location to write the summary files to. used for running 
         tensorboard
-    returns:
+    Returns:
       u_res - (n x d dense matrix)
         the d dimensional word emebedding 
       b_res - (t x d x d dense tensor)
@@ -599,7 +622,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
       the jacobian. this function sets up a tensorflow computation graph to 
       compute both. this function must be run in the main folder with all the 
       pmi matrices in order to have access to all the relevant files. 
-    input:
+    Input:
       u - (n x d dense matrix)
         the shared embedding u
       b - (d x d dense matrix)
@@ -615,7 +638,7 @@ def tf_random_batch_process(p_slices, lambda1, lambda2, d, batch_size,
       p_slices - (optional list of sparse dok matrices)
         a list of sparse matrices to use if the embeddings come from 
         somewhere other than the pmi matrices.
-    returns:
+    Returns:
       loss_func_val -(float)
         the value of the loss function
       u_grad_fro_norm-(float)
@@ -770,7 +793,7 @@ def mode_3_fft(A, max_cores=None):
       k left singular vectors and uses this for an embedding and an 
       approximation of the core tensor by multiplying each slice from the 
       right with u^t. 
-    input:
+    Input:
       a - (list of sparse dok matrices) 
         the tensor representation of the day
       k - (int)
@@ -778,7 +801,7 @@ def mode_3_fft(A, max_cores=None):
       parallel - (optional bool)
         whether or not to run the matrix matrix multiplications with multiple 
         processes. NOTE: UNTESTED!!!
-    return:
+    Return:
       U - (n x k ndarray)
         the shared embedding in question
       sigma - (n array)
@@ -820,10 +843,10 @@ def flattened_svd(A,k, parallel = False):
     flatten(a)
       this function takes in a list of sparse dok scipy matrices and returns 
       the mode 1 flattened tensor in a csr format. 
-    inputs:
+    Inputs:
       a - (list of sparse dok matrices)
         the tensor representation of the data
-    returns:
+    Returns:
       a_1 - (csr sparse matrix)
         the mode 1 flattening of the tensor a
     
@@ -844,9 +867,9 @@ def flatten(a):
       this function takes in a list of n x n sparse matrices representing a 
       n x n x k tensor and returns a list of n x k sparse matrices which 
       represent a n x k x n tensor
-    input:
+    Input:
       a - a list of (n x n) sparse dok matrices  
-    note:
+    Note:
       assuming that the keys and values of each dok sparse matrix are 
       rnadomly ordered, but have the same ordering.
 -----------------------------------------------------------------------------'''
