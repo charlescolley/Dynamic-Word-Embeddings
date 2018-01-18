@@ -36,20 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  n = 1000
-  p =range(n)
-  random.shuffle(p)
-  A = sp.rand(n,n,density=.01,format='dok')
-  print "starting"
-  t = time()
-  B = permute_dok_matrix(A,p)
-  func_t = time() - t
-  print "finished func in {} secs".format(func_t)
-  t = time()
-  p_A = A[p][:,p]
-  array_t = time() - t
-  print "finished array access in {} sec".format(array_t)
-  print sp.linalg.norm(B - p_A)
+  flattened_svd_embedding(range(1990,2009))
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -450,7 +437,7 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
           padding_index += 1
 
 
-      P_slices[t] = P_slices[t][permutation][:, permutation]
+      P_slices[t] = permute_dok_matrix(P_slices[t],permutation)
       print "finished applying t={} permutation".format(t)
 
   else:
