@@ -20,8 +20,7 @@ from multiprocessing.sharedctypes import RawArray
 from ctypes import c_double
 import process_scipts as ps
 import psutil
-import timeit as t
-from time import gmtime, strftime
+from time import gmtime, strftime, time
 
 #from memory_profiler import profile
 
@@ -37,8 +36,21 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  get_slices([1990,1991])
-  
+  n = 1000
+  p =range(n)
+  random.shuffle(p)
+  A = sp.rand(n,n,density=.01,format='dok')
+  print "starting"
+  t = time()
+  B = permute_dok_matrix(A,p)
+  func_t = time() - t
+  print "finished func in {} secs".format(func_t)
+  t = time()
+  p_A = A[p][:,p]
+  array_t = time() - t
+  print "finished array access in {} sec".format(array_t)
+  print sp.linalg.norm(B - p_A)
+
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
       This function reads in precomputed tSNE .npy files in the /tSNE folder 
@@ -293,6 +305,34 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
       pr.print_stats(sort='time')
 
   return pmi, used_indices
+
+'''-----------------------------------------------------------------------------
+    permute_dok_matrix(A,p)
+      This function takes in a sparse scipy dok matrix and permutes both the 
+      rows and the columns in time proportional to the number of non-zeros in 
+      the matrix.
+    Input:
+      A - (n x n sparse dok matrix)
+        The matrix to be permuted
+      p - (n x 1 vector)
+        a vector representing the permutation desired to switch all the rows 
+        and columns. Note that P is expected to be a permutation of range(n).
+    Returns:
+      permuted_A - (n x n sparse dok matrix)
+        The final matrix, which should be equivilant to A[p][:, p]
+    Note:
+      This algorithm runs in 2*(nnz) space, would be great to make an in 
+      place algorithm. 
+-----------------------------------------------------------------------------'''
+def permute_dok_matrix(A,p):
+  p_dict = {p_i:i for i,p_i in enumerate(p)}
+
+  permuted_A = sp.dok_matrix(A.shape)
+
+  for (i,j), val in A.iteritems():
+    permuted_A[p_dict[i],p_dict[j]] = val
+
+  return permuted_A
 
 '''-----------------------------------------------------------------------------
     convert_to_scipy(years)

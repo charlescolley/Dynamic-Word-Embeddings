@@ -3,6 +3,9 @@ import word2vec as w2v
 import process_data as pd
 import gradients as grad
 import numpy as np
+import scipy.sparse as sp
+from time import time
+from random import shuffle
 
 MACHINE_EPS = 1e-13
 
@@ -124,3 +127,19 @@ def normalize_union_wordIDs_test():
 
   for slice in P:
     print slice.todense()
+
+def permute_dok_test():
+  n = 1000
+  p =range(n)
+  shuffle(p)
+  A = sp.rand(n,n,density=.01,format='dok')
+  print "starting"
+  t = time()
+  B = pd.permute_dok_matrix(A,p)
+  func_t = time() - t
+  print "finished func in {} secs".format(func_t)
+  t = time()
+  p_A = A[p][:,p]
+  array_t = time() - t
+  print "finished array access in {} sec".format(array_t)
+  print sp.linalg.norm(B - p_A)
