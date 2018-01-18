@@ -198,7 +198,7 @@ def rank_1_Update(matrix, k):
       This function takes in a sparse scipy n x m matrix and returns a scipy 
       LinearOperator which corresponds to the matrix which has been mean 
       centered 
-        MC(A) = (I_n - ones(n,n)/n)A(I_m - ones(m,m)/m) 
+        MC(A) = (I_n - ones(n,n)/n)A(I_m - ones(m,m)/m)/2
       where the I_n is the n dimensional matrix identity. 
     Input:
       matrix - scipy sparse matrix
@@ -213,8 +213,58 @@ def rank_1_Update(matrix, k):
       - Tatsunori B. Hashimoto, David Alvarez-Melis, Tommi S. Jaakkola
 -----------------------------------------------------------------------------'''
 def mean_center(matrix):
-  n,m = matrix.shape
+  n = matrix.shape[0]
+  m = matrix.shape[1]
 
+  def mat_vec(v):
+    if v.shape == (m,):
+      output_vec = np.empty(n)
+    elif v.shape == (m,1):
+      output_vec = np.empty((n,1))
+    else:
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
+    #mean center v
+    mean_centered_v = np.empty(m)
+    v_mean = np.mean(v)/2
+    for (i,v_i) in enumerate(v):
+      mean_centered_v[i] = v_i - v_mean
+
+    #do the matvec
+    output_vec = matrix * mean_centered_v
+
+    #mean center the resultant vector
+    output_mean = np.mean(output_vec)
+    for (i,op_i) in enumerate(output_vec):
+      output_vec[i] = op_i - output_mean
+
+    return output_vec
+
+  def rmat_vec(v):
+    if v.shape == (n,):
+      output_vec = np.empty(m)
+    elif v.shape == (n, 1):
+      output_vec = np.empty((m, 1))
+    else:
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
+    # mean center v
+    mean_centered_v = np.empty(n)
+    v_mean = np.mean(v) / 2
+    for (i, v_i) in enumerate(v):
+      mean_centered_v[i] = v_i - v_mean
+
+    # do the matvec
+    output_vec = matrix.T * mean_centered_v
+
+    # mean center the resultant vector
+    output_mean = np.mean(output_vec)
+    for (i, op_i) in enumerate(output_vec):
+      output_vec[i] = op_i - output_mean
+
+    return output_vec
+
+  return LinearOperator((n,m),mat_vec, rmat_vec = rmat_vec)
 
 '''-----------------------------------------------------------------------------
     matrix_stats(matrix)
