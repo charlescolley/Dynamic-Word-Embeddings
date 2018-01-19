@@ -267,6 +267,45 @@ def mean_center(matrix):
   return LinearOperator((n,m),mat_vec, rmat_vec = rmat_vec)
 
 '''-----------------------------------------------------------------------------
+    matrix_power(matrix,k)
+        This function takes in a matrix and a positive integer k, and returns a 
+      scipy linearOperator which corresponds to the kth power of the matrix. 
+    Input:
+      matrix - (n x n sparse matrix) 
+        assumed to be a sparse matrix because a dense matrix doesn't have 
+        worry about fill in, so a matrix can simply be self multiplied and it 
+        will take up the same amount of space. 
+      k - (positive integer)
+        the power of the matrix. k is assumed to be > 1.
+    Returns:
+     A_k -(scipy  LinearOperator)
+       linear operator corresponding the matrix A^k.
+-----------------------------------------------------------------------------'''
+def matrix_power(matrix,k):
+  n = matrix.shape[0]
+  m = matrix.shape[1]
+  if n != m:
+    raise ValueError("matrix not square, shape of matrix is {}".format(
+      matrix.shape))
+
+  def mat_vec(v):
+    output_vec = np.array(v)
+    for i in xrange(k):
+      output_vec = matrix * output_vec
+
+    return output_vec
+
+  def rmat_vec(v):
+    output_vec = np.array(v)
+    for i in xrange(k):
+      output_vec = matrix.T * output_vec
+
+    return output_vec
+
+  A_k = LinearOperator((n,m),mat_vec, rmat_vec = rmat_vec)
+  return A_k
+
+'''-----------------------------------------------------------------------------
     matrix_stats(matrix)
       this function takes in a sparse matrix and returns a collection of 
       statistics about the matrix in question. data reported about the matrix 
