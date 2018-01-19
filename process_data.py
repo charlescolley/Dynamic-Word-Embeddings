@@ -175,7 +175,6 @@ def get_word_indices():
 def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
                 max_words = None, display_progress = False):
 
-
   #check if scipy file exists
   scipy_filename = "scipy_files/" + filename[:-3] + 'npz'
   if os.path.isfile(scipy_filename) and max_words == None:
@@ -231,7 +230,6 @@ def read_in_pmi(filename = FILE_NAME, return_scaled_count = False,
              word_indices[word_ID][0]
       context = word_indices[context_ID] if not return_scaled_count else\
                 word_indices[context_ID][0]
-
 
       if word not in new_indices:
         new_indices[word] = clean_indices
@@ -605,6 +603,31 @@ def compute_mode_3_ft(years):
   file_name = "fft_years_" + str(years[0]) +"_to_" + str(years[-1]) + ".npy"
   np.save("fourier_transorms/"+file_name,transformed_slices)
   print "saved files"
+
+'''-----------------------------------------------------------------------------
+    save_full_aligned_tensor()
+        This function is a preprocessing function which should only be used 
+      once in principal. The function will load in the full tensor from the csv 
+      files, align them and save the resulting sparse matrices in their own 
+      folder in the csr format. The benefit of this format is from now on, 
+      it will be unneccessary to spend time aligning the matrices, as all the 
+      tensor slices will be aligned, the draw back is that words that doen't 
+      exist in a given time slice will need to be identified. 
+-----------------------------------------------------------------------------'''
+def save_full_aligned_tensor():
+
+  #check for folder
+  path = os.path.join(os.getcwd(), 'full_aligned_tensor')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  slices, _ = get_slices(range(1990,2017))
+  year = 1990
+  for slice in slices:
+    filename = "full_aligned_tensor/full_wordPairPMI_" + str(year) + ".npz"
+    sp.save_npz(filename,slice.tocsr())
+    print "finished year:{}".format(year)
+    year += 1
 
 '''-----------------------------------------------------------------------------
 -----------------------------------------------------------------------------'''
