@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from time import clock
 from numpy.linalg import lstsq
+from itertools import izip
 from math import log, floor, ceil
 from scipy.sparse.linalg import svds, LinearOperator
 import scipy.sparse as sp
@@ -945,9 +946,14 @@ def flatten(a):
   n = a[0].shape[0]
   a_1 = sp.dok_matrix((n,T*n))
 
-  for t in range(T):
-    for ((i,j), nnz) in a[t].iteritems():
-      a_1[i,j + n*t] = nnz
+  if str(type(a[0])) == "<class 'scipy.sparse.coo.coo_matrix'>":
+    for t in range(T):
+      for i, j, nnz in izip(a[t].row, a[t].col, a[t].data):
+        a_l[i, j + n*t] =  nnz
+  else:
+    for t in range(T):
+      for ((i,j), nnz) in a[t].iteritems():
+        a_1[i,j + n*t] = nnz
 
   return a_1.tocsr()
 
