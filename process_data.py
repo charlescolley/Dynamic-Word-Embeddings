@@ -36,7 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  flattened_svd_embedding(range(1990,2009))
+  save_full_aligned_tensor()
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -609,7 +609,7 @@ def compute_mode_3_ft(years):
         This function is a preprocessing function which should only be used 
       once in principal. The function will load in the full tensor from the csv 
       files, align them and save the resulting sparse matrices in their own 
-      folder in the csr format. The benefit of this format is from now on, 
+      folder in the coo format. The benefit of this format is from now on, 
       it will be unneccessary to spend time aligning the matrices, as all the 
       tensor slices will be aligned, the draw back is that words that doen't 
       exist in a given time slice will need to be identified. 
@@ -625,7 +625,7 @@ def save_full_aligned_tensor():
   year = 1990
   for slice in slices:
     filename = "full_aligned_tensor/full_wordPairPMI_" + str(year) + ".npz"
-    sp.save_npz(filename,slice.tocsr())
+    sp.save_npz(filename,slice.tocoo())
     print "finished year:{}".format(year)
     year += 1
 
