@@ -903,7 +903,7 @@ def flattened_svd(A,k, parallel = False):
   A_1 = flatten(A)
   T = len(A)
   U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
-
+  
   b = np.ndarray((T, k, k))
   if parallel:
     #compute the core tensor in parallel
@@ -949,7 +949,7 @@ def flatten(a):
   if str(type(a[0])) == "<class 'scipy.sparse.coo.coo_matrix'>":
     for t in range(T):
       for i, j, nnz in izip(a[t].row, a[t].col, a[t].data):
-        a_l[i, j + n*t] =  nnz
+        a_1[i, j + n*t] =  nnz
   else:
     for t in range(T):
       for ((i,j), nnz) in a[t].iteritems():
