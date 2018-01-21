@@ -550,6 +550,15 @@ def word_embedding_arithmetic(embedding, indices, k):
       normalize- (optional bool)
         a bool indicating whether or not to normalize the tensor slices. If 
         this is false, then shared_ID will return a None. 
+      use_full - (optional bool)
+        a bool indicating whether or not to load in the the tensor from the 
+        full_aligned_tensor/ folder which has all the tensor slices 
+        pre-aligned and saved in a coo sparse matrix format. Note that when 
+        using this option, special consideration must be used to identify 
+        words that don't exist in a particular time slice, as no matter which 
+        years are passed in, the same wordID dict will be returned. If such a 
+        folder doesn't exist, then it will print an error to stderr and load 
+        in the files with read_in_pmi().
     Returns:
       slices - (list of sparse dok matrices)
         the list of PMI matrices associated with the desired years 
@@ -557,36 +566,55 @@ def word_embedding_arithmetic(embedding, indices, k):
         a dictionary associating the indices in the tensor to the words of 
         the PMI matrices. keys are the indices and values are the strings.
 -----------------------------------------------------------------------------'''
-def get_slices(years,normalize = True):
+def get_slices(years,normalize = True, use_full = False):
   slices = []
   wordIDs = []
 
+  #check for full_aligned_tensor/ folder
+  fAT_path = os.path.join(os.getcwd(), 'full_aligned_tensor/')
+  if not os.path.exists(fAT_path):
+    use_full = False
+    sys.stderr.write('full_aligned_tensor/ not found, setting use_full to '
+                     'False.\n')
+
   for year in years:
     # get PMI matrix
-    pattern = re.compile("[\w]*PMI_" + str(year) + ".")
-    files = os.listdir(os.getcwd())
+    if use_full:
+      pattern = re.compile("full_wordPairPMI_"+str(year) + ".npz")
+      files = os.listdir(fAT_path)
+    else:
+      pattern = re.compile("[\w]*PMI_" + str(year) + ".")
+      files = os.listdir(os.getcwd())
+
     file = filter(lambda x: re.match(pattern, x), files)[0]
     name, _ = file.split('.')
 
-    PMI, IDs = read_in_pmi(file, display_progress=True)
+    if use_full:
+      PMI = sp.load_npz(os.path.join(fAT_path,file))
+    else:
+      PMI, IDs = read_in_pmi(file, display_progress=True)
+      wordIDs.append(IDs)
 
     slices.append(PMI)
-    wordIDs.append(IDs)
 
   print "loaded in files"
   if normalize:
-    shared_ID = normalize_wordIDs(slices, wordIDs)
-    print "aligned tensor slices"
+    if use_full:
+      with open("wordIds/wordPairPMI_1990_to_2016wordIDs.pickle",'r') as handle:
+        shared_ID = pickle.load(handle)
+    else:
+      shared_ID = normalize_wordIDs(slices, wordIDs)
+      print "aligned tensor slices"
 
-    file_name = "wordIDs/wordPairPMI_" + str(years[0]) +'_to_' + \
-                                         str(years[-1]) + 'wordIDs.pickle'
-    #save shared word IDs if doesn't exist
-    if not os.path.exists(file_name):
-      # align tensor slices
+      file_name = "wordIDs/wordPairPMI_" + str(years[0]) +'_to_' + \
+                                           str(years[-1]) + 'wordIDs.pickle'
+      #save shared word IDs if doesn't exist
+      if not os.path.exists(file_name):
+        # align tensor slices
 
-      with open(file_name, 'wb') as handle:
-        pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
-      print "saved IDs"
+        with open(file_name, 'wb') as handle:
+          pickle.dump(shared_ID, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print "saved IDs"
   else:
     shared_ID = None
 
