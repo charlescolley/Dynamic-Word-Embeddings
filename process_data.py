@@ -590,6 +590,7 @@ def get_slices(years,normalize = True, use_full = False):
     name, _ = file.split('.')
 
     if use_full:
+      print "reading in full_wordPairPMI_{}_.npz".format(year)
       PMI = sp.load_npz(os.path.join(fAT_path,file))
     else:
       PMI, IDs = read_in_pmi(file, display_progress=True)
@@ -600,7 +601,7 @@ def get_slices(years,normalize = True, use_full = False):
   print "loaded in files"
   if normalize:
     if use_full:
-      with open("wordIds/wordPairPMI_1990_to_2016wordIDs.pickle",'r') as handle:
+      with open("wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle",'r') as handle:
         shared_ID = pickle.load(handle)
     else:
       shared_ID = normalize_wordIDs(slices, wordIDs)
@@ -667,7 +668,7 @@ def flattened_svd_embedding(years):
   if not os.path.exists(path):
     os.makedirs(path)
 
-  slices, _ = get_slices(years)
+  slices, _ = get_slices(years,use_full=True)
 
   U, sigma,B = w2v.flattened_svd(slices,50)
 
