@@ -143,3 +143,28 @@ def permute_dok_test():
   array_t = time() - t
   print "finished array access in {} sec".format(array_t)
   print sp.linalg.norm(B - p_A)
+
+def mean_centered_test():
+  n = 15
+  m = 10
+
+  A = sp.random(n,m,density=.9)
+
+  mean_centered_A = np.dot((np.identity(n) - np.ones((n,n))/n),
+                  np.dot(A.todense(),(np.identity(m) - np.ones((m, m))/m)/2))
+  mean_centered_AT = np.dot((np.identity(m) - np.ones((m,m))/m),
+                  np.dot(A.T.todense(),(np.identity(n) - np.ones((n, n))/n)/2))
+  LinOp_A = w2v.mean_center(A)
+
+  x = np.random.rand(m)
+  x2= np.random.rand(n)
+
+  A_x = np.dot(mean_centered_A,x)
+  AT_x = np.dot(mean_centered_AT,x2)
+
+  LO_A_x = LinOp_A.matvec(x)
+  LO_AT_x = LinOp_A.rmatvec(x2)
+
+  print np.linalg.norm(A_x - LO_A_x)
+  print np.linalg.norm(AT_x - LO_AT_x)
+
