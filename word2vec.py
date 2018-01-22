@@ -20,6 +20,7 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
+  print "hello world"
 
 
 '''-----------------------------------------------------------------------------
@@ -297,7 +298,7 @@ def matrix_power(matrix,k):
 
     return output_vec
 
-  A_k = LinearOperator((n,m),mat_vec, rmat_vec = rmat_vec)
+  A_k = LinearOperator((n,m),mat_vec, rmatvec = rmat_vec)
   return A_k
 
 '''-----------------------------------------------------------------------------
@@ -946,13 +947,21 @@ def flattened_svd(A,k, use_mean_centered = False,parallel = False):
         be created from each slice.
         Options:
           mean_center, power
+      k - (optional int)
+        This integer is only used if the LO_type is power. This k corresponds to
+        the power of k each matrix will be powered to.  
     Return:
       flattened_LO - (LinearOperator)
         the (n,mT) linear operator corresponding to the mode one flattening 
         of all the tensor slices with the respective linear operator applied 
         to them. 
+    Note:
+      as more general linear operators are implented and added in, it will be 
+      useful to write something that takes in the parameters of the given LO 
+      and apply them in the needed locations, instead of having a collection 
+      of unused optional arguments. 
 -----------------------------------------------------------------------------'''
-def create_flattened_Linear_Operators(slices, LO_type):
+def create_flattened_Linear_Operators(slices, LO_type, k=2):
   n = slices[0].shape[0]
   m = slices[0].shape[1]
   T = len(slices)
@@ -963,7 +972,7 @@ def create_flattened_Linear_Operators(slices, LO_type):
     if LO_type == "mean_center":
       LO_slices.append(mean_center(slice))
     elif LO_type == "power":
-      LO_slices.append(matrix_power(slice,10))
+      LO_slices.append(matrix_power(slice,k))
     else:
       raise ValueError("invalid Linear Operator type")
 

@@ -191,14 +191,14 @@ def matrix_power_test():
 def flattened_LO_test():
   n = 15
   m = 10
-  T = 2
+  T = 10
+
+  #test mean centered
   dense_A = np.zeros((n, m * T))
-  print dense_A.shape
   slices = []
   for t in range(T):
     slices.append(sp.random(n, m, format='dok', density=.5))
     # copy into dense tensor
-    print dense_A[:, t * m:(t + 1) * m].shape
     dense_A[:, t * m:((t + 1) * m)] = np.dot(
       (np.identity(n) - np.ones((n, n)) / n),
       np.dot(slices[t].todense(),
@@ -208,6 +208,27 @@ def flattened_LO_test():
   x2 = np.random.rand(n)
 
   LO_A = w2v.create_flattened_Linear_Operators(slices, 'mean_center')
+
+  print np.linalg.norm(np.dot(dense_A, x) - LO_A * x)
+  print np.linalg.norm(np.dot(dense_A.T, x2) - LO_A.rmatvec(x2))
+
+  # test matrix_power
+  k = 5
+
+  dense_A = np.zeros((n, n * T))
+  slices = []
+  for t in range(T):
+    slices.append(sp.random(n, n, format='dok', density=.5))
+    # copy into dense tensor
+    A_k = slices[t].todense()
+    for i in range(k-1):
+      A_k = np.dot(A_k,slices[t].todense())
+    dense_A[:, t * n:((t + 1) * n)] = A_k
+
+  x = np.random.rand(n * T)
+  x2 = np.random.rand(n)
+
+  LO_A = w2v.create_flattened_Linear_Operators(slices, 'power',k)
 
   print np.linalg.norm(np.dot(dense_A, x) - LO_A * x)
   print np.linalg.norm(np.dot(dense_A.T, x2) - LO_A.rmatvec(x2))
