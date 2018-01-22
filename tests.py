@@ -121,7 +121,7 @@ def normalize_union_wordIDs_test():
   dict_b = {'cat':0,'max':1,'chuckle':2,'anger':3,'soda':4}
   dict_c = {'cat':0,'sandwich':1,'charlie':2,'soda':3,'selfie':4}
   P = [A,B,C]
-  IDs = normalize_wordIDs(P,[dict_a,dict_b,dict_c])
+  IDs = w2v.normalize_wordIDs(P,[dict_a,dict_b,dict_c])
 
   print IDs
 
@@ -168,3 +168,26 @@ def mean_centered_test():
   print np.linalg.norm(A_x - LO_A_x)
   print np.linalg.norm(AT_x - LO_AT_x)
 
+def flattened_LO_test():
+  n = 15
+  m = 10
+  T = 2
+  dense_A = np.zeros((n, m * T))
+  print dense_A.shape
+  slices = []
+  for t in range(T):
+    slices.append(sp.random(n, m, format='dok', density=.5))
+    # copy into dense tensor
+    print dense_A[:, t * m:(t + 1) * m].shape
+    dense_A[:, t * m:((t + 1) * m)] = np.dot(
+      (np.identity(n) - np.ones((n, n)) / n),
+      np.dot(slices[t].todense(),
+             (np.identity(m) - np.ones((m, m)) / m) / 2))
+
+  x = np.random.rand(m * T)
+  x2 = np.random.rand(n)
+
+  LO_A = w2v.create_flattened_Linear_Operators(slices, 'mean_center')
+
+  print np.linalg.norm(np.dot(dense_A, x) - LO_A * x)
+  print np.linalg.norm(np.dot(dense_A.T, x2) - LO_A.rmatvec(x2))
