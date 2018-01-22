@@ -168,6 +168,26 @@ def mean_centered_test():
   print np.linalg.norm(A_x - LO_A_x)
   print np.linalg.norm(AT_x - LO_AT_x)
 
+def matrix_power_test():
+  n = 15
+  k = 3
+
+  A = sp.random(n, n, density=.7)
+  A_k = A.todense()
+  for i in range(k-1):
+    A_k = np.dot(A_k,A.todense())
+
+  LinOp_A = matrix_power(A,k)
+
+  x = np.random.rand(n)
+
+  LO_A_x = LinOp_A.matvec(x)
+  LO_AT_x = LinOp_A.rmatvec(x)
+
+  print np.linalg.norm(np.dot(A_k,x) - LO_A_x)
+  print np.linalg.norm(np.dot(A_k.T,x) - LO_AT_x)
+
+
 def flattened_LO_test():
   n = 15
   m = 10
