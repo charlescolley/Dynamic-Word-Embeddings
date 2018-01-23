@@ -872,7 +872,7 @@ def mode_3_fft(A, max_cores=None):
   return fft_A
 
 '''-----------------------------------------------------------------------------
-    flattened_svd(a)
+    flattened_svd(a,k,used_mean_centered,parallel)
       this function takes in a tensor in the form of a list of sparse dok 
       matrices, flattens them along their first mode and then computes the top 
       k left singular vectors and uses this for an embedding and an 
@@ -883,9 +883,13 @@ def mode_3_fft(A, max_cores=None):
         the tensor representation of the day
       k - (int)
         the number of singular vectors to compute
-      use_mean_centered - (optional bool)
-        a boolean indicating whether or not to use the mean centered linear 
-        operator on each of the tensor slices.
+      LO_type - (optional string)
+        a string indicting which type of linear operator should be applied to 
+        each of the slices before creating a linear operator which represents 
+        the mode one flattening. For documentation on each of the options, 
+        see the documentation of create_flattened_Linear_Operators(...). 
+        Options:
+          mean_center, power
       parallel - (optional bool)
         whether or not to run the matrix matrix multiplications with multiple 
         processes. NOTE: UNTESTED!!!
@@ -897,11 +901,13 @@ def mode_3_fft(A, max_cores=None):
       b - (t x k x k ndarray)
         the approximated core tensor
 -----------------------------------------------------------------------------'''
-def flattened_svd(A,k, use_mean_centered = False,parallel = False):
+def flattened_svd(A,k, LO_type = None,parallel = False):
   T = len(A)
-  if use_mean_centered:
-    print "blah"
+  if not LO_type:
+    print "using linear operator {}".format(LO_type)
+    A_1 = create_flattened_Linear_Operators(A,LO_type)
   else:
+    print "using sparse arrays"
     A_1 = flatten(A)
 
   U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
