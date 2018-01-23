@@ -121,7 +121,7 @@ def normalize_union_wordIDs_test():
   dict_b = {'cat':0,'max':1,'chuckle':2,'anger':3,'soda':4}
   dict_c = {'cat':0,'sandwich':1,'charlie':2,'soda':3,'selfie':4}
   P = [A,B,C]
-  IDs = normalize_wordIDs(P,[dict_a,dict_b,dict_c])
+  IDs = w2v.normalize_wordIDs(P,[dict_a,dict_b,dict_c])
 
   print IDs
 
@@ -143,3 +143,92 @@ def permute_dok_test():
   array_t = time() - t
   print "finished array access in {} sec".format(array_t)
   print sp.linalg.norm(B - p_A)
+
+def mean_centered_test():
+  n = 15
+  m = 10
+
+  A = sp.random(n,m,density=.9)
+
+  mean_centered_A = np.dot((np.identity(n) - np.ones((n,n))/n),
+                  np.dot(A.todense(),(np.identity(m) - np.ones((m, m))/m)/2))
+  mean_centered_AT = np.dot((np.identity(m) - np.ones((m,m))/m),
+                  np.dot(A.T.todense(),(np.identity(n) - np.ones((n, n))/n)/2))
+  LinOp_A = w2v.mean_center(A)
+
+  x = np.random.rand(m)
+  x2= np.random.rand(n)
+
+  A_x = np.dot(mean_centered_A,x)
+  AT_x = np.dot(mean_centered_AT,x2)
+
+  LO_A_x = LinOp_A.matvec(x)
+  LO_AT_x = LinOp_A.rmatvec(x2)
+
+  print np.linalg.norm(A_x - LO_A_x)
+  print np.linalg.norm(AT_x - LO_AT_x)
+
+def matrix_power_test():
+  n = 15
+  k = 3
+
+  A = sp.random(n, n, density=.7)
+  A_k = A.todense()
+  for i in range(k-1):
+    A_k = np.dot(A_k,A.todense())
+
+  LinOp_A = matrix_power(A,k)
+
+  x = np.random.rand(n)
+
+  LO_A_x = LinOp_A.matvec(x)
+  LO_AT_x = LinOp_A.rmatvec(x)
+
+  print np.linalg.norm(np.dot(A_k,x) - LO_A_x)
+  print np.linalg.norm(np.dot(A_k.T,x) - LO_AT_x)
+
+
+def flattened_LO_test():
+  n = 15
+  m = 10
+  T = 10
+
+  #test mean centered
+  dense_A = np.zeros((n, m * T))
+  slices = []
+  for t in range(T):
+    slices.append(sp.random(n, m, format='dok', density=.5))
+    # copy into dense tensor
+    dense_A[:, t * m:((t + 1) * m)] = np.dot(
+      (np.identity(n) - np.ones((n, n)) / n),
+      np.dot(slices[t].todense(),
+             (np.identity(m) - np.ones((m, m)) / m) / 2))
+
+  x = np.random.rand(m * T)
+  x2 = np.random.rand(n)
+
+  LO_A = w2v.create_flattened_Linear_Operators(slices, 'mean_center')
+
+  print np.linalg.norm(np.dot(dense_A, x) - LO_A * x)
+  print np.linalg.norm(np.dot(dense_A.T, x2) - LO_A.rmatvec(x2))
+
+  # test matrix_power
+  k = 5
+
+  dense_A = np.zeros((n, n * T))
+  slices = []
+  for t in range(T):
+    slices.append(sp.random(n, n, format='dok', density=.5))
+    # copy into dense tensor
+    A_k = slices[t].todense()
+    for i in range(k-1):
+      A_k = np.dot(A_k,slices[t].todense())
+    dense_A[:, t * n:((t + 1) * n)] = A_k
+
+  x = np.random.rand(n * T)
+  x2 = np.random.rand(n)
+
+  LO_A = w2v.create_flattened_Linear_Operators(slices, 'power',k)
+
+  print np.linalg.norm(np.dot(dense_A, x) - LO_A * x)
+  print np.linalg.norm(np.dot(dense_A.T, x2) - LO_A.rmatvec(x2))

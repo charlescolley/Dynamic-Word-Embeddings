@@ -20,12 +20,7 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  n = 1e6
-  m = 5e5
-  k = 2
-  d = 100
-  A = sp.random(n,m,density=.01,format='dok')
-  U,sigma,VT = svds(rank_1_Update(A,k),d)
+  print "hello world"
 
 
 '''-----------------------------------------------------------------------------
@@ -227,9 +222,9 @@ def mean_center(matrix):
                        "}".format(v.shape))
     #mean center v
     mean_centered_v = np.empty(m)
-    v_mean = np.mean(v)/2
+    v_mean = np.mean(v)
     for (i,v_i) in enumerate(v):
-      mean_centered_v[i] = v_i - v_mean
+      mean_centered_v[i] = (v_i - v_mean)/2
 
     #do the matvec
     output_vec = matrix * mean_centered_v
@@ -251,9 +246,9 @@ def mean_center(matrix):
                        "}".format(v.shape))
     # mean center v
     mean_centered_v = np.empty(n)
-    v_mean = np.mean(v) / 2
+    v_mean = np.mean(v)
     for (i, v_i) in enumerate(v):
-      mean_centered_v[i] = v_i - v_mean
+      mean_centered_v[i] = (v_i - v_mean)/2
 
     # do the matvec
     output_vec = matrix.T * mean_centered_v
@@ -265,7 +260,7 @@ def mean_center(matrix):
 
     return output_vec
 
-  return LinearOperator((n,m),mat_vec, rmat_vec = rmat_vec)
+  return LinearOperator((n,m),mat_vec, rmatvec = rmat_vec)
 
 '''-----------------------------------------------------------------------------
     matrix_power(matrix,k)
@@ -303,7 +298,7 @@ def matrix_power(matrix,k):
 
     return output_vec
 
-  A_k = LinearOperator((n,m),mat_vec, rmat_vec = rmat_vec)
+  A_k = LinearOperator((n,m),mat_vec, rmatvec = rmat_vec)
   return A_k
 
 '''-----------------------------------------------------------------------------
@@ -877,7 +872,7 @@ def mode_3_fft(A, max_cores=None):
   return fft_A
 
 '''-----------------------------------------------------------------------------
-    flattened_svd(a)
+    flattened_svd(a,k,used_mean_centered,parallel)
       this function takes in a tensor in the form of a list of sparse dok 
       matrices, flattens them along their first mode and then computes the top 
       k left singular vectors and uses this for an embedding and an 
@@ -888,6 +883,13 @@ def mode_3_fft(A, max_cores=None):
         the tensor representation of the day
       k - (int)
         the number of singular vectors to compute
+      LO_type - (optional string)
+        a string indicting which type of linear operator should be applied to 
+        each of the slices before creating a linear operator which represents 
+        the mode one flattening. For documentation on each of the options, 
+        see the documentation of create_flattened_Linear_Operators(...). 
+        Options:
+          mean_center, power
       parallel - (optional bool)
         whether or not to run the matrix matrix multiplications with multiple 
         processes. NOTE: UNTESTED!!!
@@ -899,9 +901,15 @@ def mode_3_fft(A, max_cores=None):
       b - (t x k x k ndarray)
         the approximated core tensor
 -----------------------------------------------------------------------------'''
-def flattened_svd(A,k, parallel = False):
-  A_1 = flatten(A)
+def flattened_svd(A,k, LO_type = None,parallel = False):
   T = len(A)
+  if not LO_type:
+    print "using linear operator {}".format(LO_type)
+    A_1 = create_flattened_Linear_Operators(A,LO_type)
+  else:
+    print "using sparse arrays"
+    A_1 = flatten(A)
+
   U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
   
   b = np.ndarray((T, k, k))
@@ -928,6 +936,79 @@ def flattened_svd(A,k, parallel = False):
 
 
   return U, sigma, b
+
+'''-----------------------------------------------------------------------------
+    create_flattened_Linear_Operators(slices, LO_type)
+        This function takes in a list of sparse matrices and a string, and 
+      returns a linear Operator which corresponds to the mode one flattened 
+      matrix where each slice is first turned into a linear operator. The 
+      string passed in will determine which type of linear operator is 
+      applied to each slice. 
+    Input:
+      slices - (list of sparse matrices)
+        The tensor slices to produce the the flattened linear operator with. 
+        This list is assumed to be at least of length 2. 
+      LO_type -(string)
+        The string which will determine which type of linear operator should 
+        be created from each slice.
+        Options:
+          mean_center, power
+      k - (optional int)
+        This integer is only used if the LO_type is power. This k corresponds to
+        the power of k each matrix will be powered to.  
+    Return:
+      flattened_LO - (LinearOperator)
+        the (n,mT) linear operator corresponding to the mode one flattening 
+        of all the tensor slices with the respective linear operator applied 
+        to them. 
+    Note:
+      as more general linear operators are implented and added in, it will be 
+      useful to write something that takes in the parameters of the given LO 
+      and apply them in the needed locations, instead of having a collection 
+      of unused optional arguments. 
+-----------------------------------------------------------------------------'''
+def create_flattened_Linear_Operators(slices, LO_type, k=2):
+  n = slices[0].shape[0]
+  m = slices[0].shape[1]
+  T = len(slices)
+
+  # apply the linear operators to each slice
+  LO_slices = []
+  for slice in slices:
+    if LO_type == "mean_center":
+      LO_slices.append(mean_center(slice))
+    elif LO_type == "power":
+      LO_slices.append(matrix_power(slice,k))
+    else:
+      raise ValueError("invalid Linear Operator type")
+
+  def mat_vec(v):
+    if v.shape == (m*T,):
+      output_vec = np.empty(n)
+    elif v.shape == (m*T,1):
+      output_vec = np.empty((n,1))
+    else:
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
+    output_vec = LO_slices[0] * v[0:m]
+    for t in range(1,T):
+      output_vec = output_vec + LO_slices[t] * v[t*m:(t+1)*m]
+
+    return output_vec
+
+  def rmat_vec(v):
+    if v.shape == (n,):
+      output_vec = np.empty(m*T)
+    elif v.shape == (n, 1):
+      output_vec = np.empty((m*T, 1))
+    else:
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
+    for t in range(T):
+      output_vec[t*m:(t+1)*m] = LO_slices[t].rmatvec(v)
+
+    return output_vec
+  return LinearOperator((n,m*T), mat_vec, rmatvec= rmat_vec)
 
 '''-----------------------------------------------------------------------------
     flatten(a)

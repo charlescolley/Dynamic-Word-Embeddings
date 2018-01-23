@@ -36,7 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  save_full_aligned_tensor()
+  flattened_svd_embedding(range(1990,2009),'mean_center')
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -660,7 +660,7 @@ def save_full_aligned_tensor():
 
 '''-----------------------------------------------------------------------------
 -----------------------------------------------------------------------------'''
-def flattened_svd_embedding(years):
+def flattened_svd_embedding(years, LO_type = None):
 
   #check for svd folder
   # check if places for stdout_files existt
@@ -670,15 +670,16 @@ def flattened_svd_embedding(years):
 
   slices, _ = get_slices(years,use_full=True)
 
-  U, sigma,B = w2v.flattened_svd(slices,50)
+  U, sigma,B = w2v.flattened_svd(slices,50,LO_type)
 
-  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[
-                                                         -1])+'_FSVD_U.npy',U)
-  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[
-                                                         -1])+'_FSVD_sigma.npy',
-          sigma)
-  np.save('flattened_svd/'+str(years[0]) +'_to_' + str(years[
-                                                         -1])+'_FSVD_B.npy',B)
+  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[1])
+
+  if not LO_type:
+    filename_base = filename_base + LO_type
+
+  np.save(filename_base + "_FSVD_U.npy",U)
+  np.save(filename_base + "_FSVD_sigma.npy",sigma)
+  np.save(filename_base + "_FSVD_B.npy",B)
   print "saved files"
 
 
