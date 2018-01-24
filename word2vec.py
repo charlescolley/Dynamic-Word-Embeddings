@@ -903,7 +903,7 @@ def mode_3_fft(A, max_cores=None):
 -----------------------------------------------------------------------------'''
 def flattened_svd(A,k, LO_type = None,parallel = False):
   T = len(A)
-  if not LO_type:
+  if LO_type:
     print "using linear operator {}".format(LO_type)
     A_1 = create_flattened_Linear_Operators(A,LO_type)
   else:
