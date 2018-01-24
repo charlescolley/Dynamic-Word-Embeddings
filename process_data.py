@@ -36,7 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  flattened_svd_embedding(range(1990,2009),'mean_center')
+  flattened_svd_embedding(range(1990,2009),'power')
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -672,9 +672,9 @@ def flattened_svd_embedding(years, LO_type = None):
 
   U, sigma,B = w2v.flattened_svd(slices,50,LO_type)
 
-  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[1])
+  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[1]) +'_'
 
-  if not LO_type:
+  if LO_type:
     filename_base = filename_base + LO_type
 
   np.save(filename_base + "_FSVD_U.npy",U)
