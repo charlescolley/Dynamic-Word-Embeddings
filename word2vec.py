@@ -903,7 +903,7 @@ def mode_3_fft(A, max_cores=None):
 -----------------------------------------------------------------------------'''
 def flattened_svd(A,k, LO_type = None,parallel = False):
   T = len(A)
-  if not LO_type:
+  if LO_type:
     print "using linear operator {}".format(LO_type)
     A_1 = create_flattened_Linear_Operators(A,LO_type)
   else:
@@ -911,7 +911,7 @@ def flattened_svd(A,k, LO_type = None,parallel = False):
     A_1 = flatten(A)
 
   U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
-
+  
   b = np.ndarray((T, k, k))
   if parallel:
     #compute the core tensor in parallel
@@ -1030,7 +1030,7 @@ def flatten(a):
   if str(type(a[0])) == "<class 'scipy.sparse.coo.coo_matrix'>":
     for t in range(T):
       for i, j, nnz in izip(a[t].row, a[t].col, a[t].data):
-        a_l[i, j + n*t] =  nnz
+        a_1[i, j + n*t] =  nnz
   else:
     for t in range(T):
       for ((i,j), nnz) in a[t].iteritems():
