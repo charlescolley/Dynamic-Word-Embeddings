@@ -979,18 +979,19 @@ def test_word_embedding():
       #find years associated with embedding
       start_year = file[12:16]
       end_year = file[20:24]
-    else:
-      start_year = file[:4]
-      end_year = file[8:12]
 
-    #load in shared word IDs
-    pattern = re.compile("[\w]*PMI_" + start_year +"_to_"+ end_year +
+      #load in shared word IDs
+      pattern = re.compile("[\w]*PMI_" + start_year +"_to_"+ end_year +
                          "wordIDs.pickle")
-    files = os.listdir(os.getcwd() + "/wordIDs")
-    IDs_file = filter(lambda x: re.match(pattern, x), files)
-    print IDs_file,files
-    with open("wordIDs/" + IDs_file[0], 'rb') as handle:
-      indices = pickle.load(handle)
+      files = os.listdir(os.getcwd() + "/wordIDs")
+      IDs_file = filter(lambda x: re.match(pattern, x), files)
+      print IDs_file,files
+      with open("wordIDs/" + IDs_file[0], 'rb') as handle:
+        indices = pickle.load(handle)
+    else:
+      with open("wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle", 'rb') as handle:
+        indices = pickle.load(handle)
+
     indices = {value: key for key, value in indices.iteritems()}
 
     load_new_year = True
