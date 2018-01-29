@@ -36,7 +36,18 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  flattened_svd_embedding(range(1990,2009),'power')
+  test_word = 'apple'
+  #load in the U and B for the test
+  U = np.load(os.path.join(DATA_FILE_PATH,
+                           'flattened_svd/1990_to_2008__FSVD_U.npy'))
+  B = np.load(os.path.join(DATA_FILE_PATH,
+                           'flattened_svd/1990_to_2008__FSVD_B.npy'))
+  with open(os.path.join(DATA_FILE_PATH,
+                         'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
+                         'r') as handle:
+    wordIDs = pickle.load(handle)
+  word_trajectories(test_word,U,B[:2],wordIDs,10)
+
 
 '''-----------------------------------------------------------------------------
     load_tSNE_word_cloud()
@@ -472,6 +483,75 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
 
 
   return shared_wordIDs
+
+'''-----------------------------------------------------------------------------
+    word_trajectories(embedding)
+        This function takes in an embedding from the flattened_svd method and 
+      an integer and creates a plot watching how the words have shifted
+    Input:
+      word - (string)
+        the word to plot the word trajectory for
+      embedding - (n x d numpy matrix)
+        The d dimensional embedding in question
+      core_tessor - (d x d x T numpy ndarray)
+        The core tensor relating the time slices together. 
+      wordID - (dictionary)
+        A dictionary which links the words in the embedding to their 
+        corresponding indices in the embedding. keys are words, and values 
+        are the indices. 
+      k - (positive integer)
+        An integer indicating the number of nearest neighbors to consider 
+    Note:
+-----------------------------------------------------------------------------'''
+def word_trajectories(word, embedding,core_tensor,wordIDs,k):
+
+  T = core_tensor.shape[0]
+  d = core_tensor.shape[1]
+  seen_neighbors = []
+  nearest_neighbors = []
+  word_embeddings = []
+  #find all the nearest neighbors for each time slice
+  for t in range(T):
+    #compute the t_th embedding
+    vals, vecs = np.linalg.eig(core_tensor[t])
+    # cut off round off error
+    #         vals = np.array(map(lambda x: 0 if abs(x) < 1e-10 else x, vals))
+    sqrt_val = map(lambda x: sqrt(x), vals)
+    sqrt_B = np.dot(vecs, np.diag(sqrt_val))
+    t_embedding = np.dot(embedding,sqrt_B)
+
+    #add in t_th word embedding in t_th slice to embedding list
+    word_embeddings.append((word +'_'+str(t),t_embedding[wordIDs[word],:]))
+
+
+    nearest_neighbors.append(k_nearest_neighbors(word,k,t_embedding,wordIDs))
+
+    #remove neighbors already seen in the embedding
+    if t != 0:
+      seen_neighbors.extend(nearest_neighbors[t-1])
+      nearest_neighbors[t] = \
+        filter(lambda (x,_): x not in map(lambda (y,_): y,seen_neighbors),
+               nearest_neighbors[t])
+
+    #add the neighbors embeddings into a list
+    for (neighbor,_) in nearest_neighbors[t]:
+      word_embeddings.append((neighbor, t_embedding[wordIDs[neighbor],:]))
+
+  #aggregate all the embeddings into a single numpy array
+  unique_words = len(word_embeddings)
+  final_U = np.empty((unique_words,d),dtype=np.complex)
+  for i in range(unique_words):
+    final_U[i,:] = word_embeddings[i][1]
+
+  tsne_data = TSNE(2).fit_transform(final_U)
+  plt.scatter(tsne_data[:,0],tsne_data[:,1])
+
+  for i in range(unique_words):
+    plt.annotate(word_embeddings[i][0], (tsne_data[i,0],tsne_data[i,1]))
+  plt.show()
+
+
+
 
 '''-----------------------------------------------------------------------------
     word_embedding_arithmetic()
