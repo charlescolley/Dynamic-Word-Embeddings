@@ -36,17 +36,35 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  test_word = 'apple'
+  test_word = 'amazon'
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__FSVD_U.npy'))
+                           'flattened_svd/1990_to_2008_mean_center_FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__FSVD_B.npy'))
+                           'flattened_svd/1990_to_2008_mean_center_FSVD_B.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
-  word_trajectories(test_word,U,B[:2],wordIDs,10)
+  compared_to_t_0_CD, consecutive_CD = \
+    cosine_distances(U[wordIDs[test_word],:],B)
+
+
+
+  T = len(compared_to_t_0_CD)+1
+
+  fig,(ax1,ax2) = plt.subplots(2,1)
+  ax1.set_title("Cosine Distances Compared to t_0")
+  ax1.set_xlabel("time slice t")
+  ax1.set_ylabel("theta(xB[0],xB[t])")
+  ax1.plot(range(1,T),compared_to_t_0_CD)
+
+  ax2.set_title("Cosecutive Cosine Distances")
+  ax2.plot(range(1,T), consecutive_CD)
+  ax2.set_xlabel("time slice t")
+  ax2.set_ylabel("theta(xB[t],xB[t+1])")
+  plt.show()
+#  word_trajectories(test_word,U,B,wordIDs,10)
 
 
 '''-----------------------------------------------------------------------------
@@ -513,12 +531,15 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
   #find all the nearest neighbors for each time slice
   for t in range(T):
     #compute the t_th embedding
-    vals, vecs = np.linalg.eig(core_tensor[t])
+
+    #vals, vecs = np.linalg.eig(core_tensor[t])
     # cut off round off error
     #         vals = np.array(map(lambda x: 0 if abs(x) < 1e-10 else x, vals))
-    sqrt_val = map(lambda x: sqrt(x), vals)
-    sqrt_B = np.dot(vecs, np.diag(sqrt_val))
-    t_embedding = np.dot(embedding,sqrt_B)
+    #sqrt_val = map(lambda x: sqrt(x), vals)
+    #sqrt_B = np.dot(vecs, np.diag(sqrt_val))
+
+    t_embedding = np.dot(embedding,core_tensor[t])
+    normalize(t_embedding)
 
     #add in t_th word embedding in t_th slice to embedding list
     word_embeddings.append((word +'_'+str(t),t_embedding[wordIDs[word],:]))
@@ -550,8 +571,36 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
     plt.annotate(word_embeddings[i][0], (tsne_data[i,0],tsne_data[i,1]))
   plt.show()
 
+'''-----------------------------------------------------------------------------
+    plot_cosine_distances(word_embedding, core_tensor)
+      This function takes in a vector representation of a word and the core 
+    tensor associated with the embedding and plots the cosine distance of the 
+    pairwise consistent time differences. 
+-----------------------------------------------------------------------------'''
+def cosine_distances(word_embedding,core_tensor):
+  T = core_tensor.shape[0]
 
+  time_0_embedding = np.dot(word_embedding,core_tensor[0])
+  time_0_embedding = time_0_embedding/np.linalg.norm(time_0_embedding)
 
+  #compute the cosine distances
+  compared_to_t_0_CD = []
+  consecutive_CD = []
+
+  previous_time_embedding = time_0_embedding
+  for t in range(1,T):
+    #normalize the t_th embedding
+    time_t_embedding = np.dot(word_embedding, core_tensor[t])
+    time_t_embedding = time_t_embedding / np.linalg.norm(time_t_embedding)
+    cosine_distance_1 = np.dot(time_0_embedding,time_t_embedding)
+    cosine_distance_2 = np.dot(previous_time_embedding, time_t_embedding)
+
+    compared_to_t_0_CD.append(cosine_distance_1)
+    consecutive_CD.append(cosine_distance_2)
+
+    previous_time_embedding = time_t_embedding
+
+  return compared_to_t_0_CD, consecutive_CD
 
 '''-----------------------------------------------------------------------------
     word_embedding_arithmetic()
