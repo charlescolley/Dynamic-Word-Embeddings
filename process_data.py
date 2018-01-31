@@ -36,18 +36,48 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  words = ['amazon','apple','disney','obama','hillary','america']
+  words = ['amazon','apple','disney','obama','clinton','america','pixar',
+           'gore','pie','movie','sandwich','plane','war','dollar',
+                      'computer']
+
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008_mean_center_FSVD_U.npy'))
+                           'flattened_svd/1990_to_2008__FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008_mean_center_FSVD_B.npy'))
+                           'flattened_svd/1990_to_2008__FSVD_B.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
   plot_word_changes(words, U, B, wordIDs)
+  #plot_core_tensor_eigenvalues(B)
 
+
+'''----------------------------------------------------------------------------- 
+    plot_core_tensor_eigenvalues(core_tensor)
+        This function takes in a core tensor and computes/ plots the 
+      eigenvalues of each frontal slice of the tensor. 
+    Input:
+      core_tensor - (T x d x d ndarray)
+        A dense tensor which has all the temporal information of the shared 
+        embedding. 
+-----------------------------------------------------------------------------'''
+def plot_core_tensor_eigenvalues(core_tensor):
+  T = core_tensor.shape[0]
+
+  fig, axes = plt.subplots(2,1)
+
+  for t in range(T):
+    vals,_ = np.linalg.eig(core_tensor[t])
+    vals = sorted(vals)
+    axes[0].plot(vals)
+    axes[1].semilogy(vals)
+  axes[0].set_title('linear plot')
+  axes[1].set_title('log plot')
+
+  plt.xlabel('eigenvalue i')
+  plt.legend(range(T),loc='center right',bbox_to_anchor=(1.1, 1))
+  plt.show()
 
 '''-----------------------------------------------------------------------------
     plot_word_changes()
