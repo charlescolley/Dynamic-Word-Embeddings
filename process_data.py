@@ -36,7 +36,7 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  test_word = 'amazon'
+  words = ['amazon','apple','disney','obama','hillary','america']
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
                            'flattened_svd/1990_to_2008_mean_center_FSVD_U.npy'))
@@ -46,25 +46,59 @@ def main():
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
-  compared_to_t_0_CD, consecutive_CD = \
-    cosine_distances(U[wordIDs[test_word],:],B)
+  plot_word_changes(words, U, B, wordIDs)
 
 
+'''-----------------------------------------------------------------------------
+    plot_word_changes()
+        This function creates a plot looking at distances between the initial 
+      and consective time embeddings for a each word given in a list. 
+      Currently the function will plot the cosine distances and the norm 
+      differences for each of the words in the list.
+    Input: 
+      words- (list of strings)
+        list of strings to be tested, each string is assumed to be a valid 
+        key in the wordID parameter.
+      shared_embedding - (n x d dense array)
+        The d-dimensional embedding tying all the time slices together
+      core_tensor - (T x d x d ndarray)
+        The core tensor relating each time slice to their T_th embedding. 
+      wordIDs - (dictionary)
+        A dictionary linking each word to their row in the shared embedding. 
+-----------------------------------------------------------------------------'''
+def plot_word_changes(words,shared_embedding, core_tensor,wordIDs):
+  fig, axes = plt.subplots(2, 2)
 
-  T = len(compared_to_t_0_CD)+1
+  for test_word in words:
+    compared_to_t_0_CD, consecutive_CD, t_0_ND, consecutive_ND = \
+      collect_embedding_distances(shared_embedding[wordIDs[test_word], :],core_tensor)
 
-  fig,(ax1,ax2) = plt.subplots(2,1)
-  ax1.set_title("Cosine Distances Compared to t_0")
-  ax1.set_xlabel("time slice t")
-  ax1.set_ylabel("theta(xB[0],xB[t])")
-  ax1.plot(range(1,T),compared_to_t_0_CD)
+    T = len(compared_to_t_0_CD) + 1
 
-  ax2.set_title("Cosecutive Cosine Distances")
-  ax2.plot(range(1,T), consecutive_CD)
-  ax2.set_xlabel("time slice t")
-  ax2.set_ylabel("theta(xB[t],xB[t+1])")
+
+    axes[0, 0].set_title("Cosine Distances Compared to t_0")
+    axes[0, 0].set_xlabel("time slice t")
+    axes[0, 0].set_ylabel("cos(xB[0],xB[t])")
+    axes[0, 0].plot(range(1, T), compared_to_t_0_CD, label=test_word)
+
+    axes[1, 0].set_title("Cosecutive Cosine Distances")
+    axes[1, 0].plot(range(1, T), consecutive_CD, label=test_word)
+    axes[1, 0].set_xlabel("time slice t")
+    axes[1, 0].set_ylabel("cos(xB[t],xB[t+1])")
+
+    axes[0, 1].set_title("norm difference compared to t_0")
+    axes[0, 1].plot(range(1, T), t_0_ND, label=test_word)
+    axes[0, 1].set_xlabel("time slice t")
+    axes[0, 1].set_ylabel("norm(xB[0] - xB[t])")
+
+    axes[1, 1].set_title("Cosecutive difference norm")
+    axes[1, 1].plot(range(1, T), consecutive_ND, label=test_word)
+    axes[1, 1].set_xlabel("time slice t")
+    axes[1, 1].set_ylabel("norm(xB[t] - xB[t+1])")
+
+
+  plt.legend(words,loc='center right',bbox_to_anchor=(1.2, 1))
   plt.show()
-#  word_trajectories(test_word,U,B,wordIDs,10)
 
 
 '''-----------------------------------------------------------------------------
@@ -572,12 +606,31 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
   plt.show()
 
 '''-----------------------------------------------------------------------------
-    plot_cosine_distances(word_embedding, core_tensor)
+    collect_embedding_distances(word_embedding, core_tensor)
       This function takes in a vector representation of a word and the core 
-    tensor associated with the embedding and plots the cosine distance of the 
-    pairwise consistent time differences. 
+    tensor associated with the embedding collects different kinds of 
+    distances and returns the list associating them.
+    Input: 
+      word_embedding- (1 x d numpy array)
+        The shared word embedding to be tested
+      core_tensor - (T x d x d ndarray)
+        The core tensor connecting the shared embedding to the different T 
+        time slices. 
+    Returns: 
+      compared_to_t_0_CD - (list of floats)
+        a list of the cosine distances of the embedding at each time and the 
+        initial time slice.
+      consecutive_CD - (list of floats)
+        a list of the cosine distances of the embedding at each time and the 
+        next conecutive time. 
+      t_0_norm_difference - (list of floats)
+        a list of the 2-norms of the differences bettwen the embedding at 
+        each time and first embedding.
+      consectutive_norm_difference - (list of floats)
+        a list of the 2-norms of the differences between the embedding at 
+        each time and the next consective time.
 -----------------------------------------------------------------------------'''
-def cosine_distances(word_embedding,core_tensor):
+def collect_embedding_distances(word_embedding,core_tensor):
   T = core_tensor.shape[0]
 
   time_0_embedding = np.dot(word_embedding,core_tensor[0])
@@ -586,6 +639,8 @@ def cosine_distances(word_embedding,core_tensor):
   #compute the cosine distances
   compared_to_t_0_CD = []
   consecutive_CD = []
+  consecutive_norm_difference = []
+  t_0_norm_difference = []
 
   previous_time_embedding = time_0_embedding
   for t in range(1,T):
@@ -595,12 +650,20 @@ def cosine_distances(word_embedding,core_tensor):
     cosine_distance_1 = np.dot(time_0_embedding,time_t_embedding)
     cosine_distance_2 = np.dot(previous_time_embedding, time_t_embedding)
 
+    norm_difference_1 = \
+      np.linalg.norm(time_t_embedding - time_0_embedding)
+    norm_difference_2 = \
+      np.linalg.norm(time_t_embedding - previous_time_embedding)
+
     compared_to_t_0_CD.append(cosine_distance_1)
     consecutive_CD.append(cosine_distance_2)
+    t_0_norm_difference.append(norm_difference_1)
+    consecutive_norm_difference.append(norm_difference_2)
 
     previous_time_embedding = time_t_embedding
 
-  return compared_to_t_0_CD, consecutive_CD
+  return compared_to_t_0_CD, consecutive_CD, \
+         t_0_norm_difference, consecutive_norm_difference
 
 '''-----------------------------------------------------------------------------
     word_embedding_arithmetic()
