@@ -61,21 +61,29 @@ def main():
       core_tensor - (T x d x d ndarray)
         A dense tensor which has all the temporal information of the shared 
         embedding. 
+      use_singular - (optional bool)
+        boolean indicating whether or not to use the singular values instead.
 -----------------------------------------------------------------------------'''
-def plot_core_tensor_eigenvalues(core_tensor):
+def plot_core_tensor_eigenvalues(core_tensor, use_singular = False):
   T = core_tensor.shape[0]
 
   fig, axes = plt.subplots(2,1)
 
   for t in range(T):
-    vals,_ = np.linalg.eig(core_tensor[t])
+    if use_singular:
+      vals = np.linalg.svd(core_tensor[t],compute_uv= False)
+    else:
+      vals,_ = np.linalg.eig(core_tensor[t])
     vals = sorted(vals)
     axes[0].plot(vals)
     axes[1].semilogy(vals)
   axes[0].set_title('linear plot')
   axes[1].set_title('log plot')
 
-  plt.xlabel('eigenvalue i')
+  if use_singular:
+    plt.xlabel('singular value i')
+  else:
+    plt.xlabel('eigenvalue i')
   plt.legend(range(T),loc='center right',bbox_to_anchor=(1.1, 1))
   plt.show()
 
