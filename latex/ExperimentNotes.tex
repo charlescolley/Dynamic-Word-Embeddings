@@ -3,6 +3,7 @@
 
 \usepackage{amsfonts}
 \usepackage{amsmath}
+\newcommand{\ceil}[1]{\lceil #1 \rceil}
 \newcommand{\argmin}[2]{\text{arg}\min_{#1}#2}
 \newcommand{\partitionedV}{[V_p \,\,\tilde{V}]}
 \newcommand{\BigLambda}{\begin{bmatrix}
@@ -14,7 +15,73 @@
 																 \tilde{V}^T
 															 \end{bmatrix}}
 \begin{document}
-	\textbf{10/31/2017 Research Notes}
+	\section{11/29/2017 Research Notes}
+	\textbf{Notation}\\
+	Let $ [n] = \{1,\dots,n\} $ and for $  m < n $ let $ [n]_m = \{m,m+1, \dots,n-1, n\} $  
+	
+	\subsection{Preliminary Adagrad Results}
+	
+	   Over the break, I set up some batches to start training.Letting $ \mathcal{P} \in \mathbb{R}^{n \times n \times T} $ denote the PMI tensor, $ U \in \mathbb{R}^{n \times d}$ denote the shared embedding, and $ \mathcal{C} \in \mathbb{R^{d \times d \times T}} $ denote the core tensor The batches are minimizing 
+	   \[ 
+	      \|\mathcal{P} - \mathcal{C} \times_1 U \times_2 U \|_F^2 + \lambda_1 \|U\|_F^2 + \lambda_2 \|\mathcal{C}\|_F^2 
+	   \]
+	   with randomized mini-batch iterations of the Adagrad tensorflow (tf) optimizer with respect to $ U $ and $ \mathcal{C} $. The experiments were hoping to show an affect of the regularizer parameter variable, by choosing values uniformly along a logarithmic scale (base 10). To minimize the keep the number of tests run linear $ \lambda_1 = \lambda_2 =\lambda $ for all the tests and $ \lambda = 10^i $. for $ i \in [3]_{-4} $. All but on of the tests are using two time slices $ T = 2 $ with the years 2000 and 2001, with the exception of one test running on the years 2000 through 2004 to see how performance would change as $ T $ increased. 
+	   
+	   The embeddings when plugged into arithmetic word embedding software did not create not capture semantics as well as the svd embeddings using 50 singular vectors. Also when the eigenvalues of the core tensor slices were compared, the eigenvalues distribution shape were very similar. There were slight differences in the range of the values, but the differences were marginal.
+	   
+	   \[ 
+	    INSERT PLOTS HERE
+	   \]
+	   
+	   Though Adagrad did not offer very good results, this may lie within the fact that Adagrad's step size will continue to diminish monotonically as the step count increases. This is accounted for in the Adagrad-$ \delta $ function, so perhaps a different optimizer will yield different results. Experiments have been set up to not only explore the effects of different optimizers, but to also help find optimal batch sizes. The tests are only using one time slice, reducing the minimization problem down to 
+	   \[ \|P - UCU^T\|_F^2 + \lambda\|U\|_F^2 + \lambda\|C\|_F^2 \]
+	   which is a regularized SVD approximator. Here because there is no constraint relating  $ C $ and $ U $, $ C $ can be arbitary, and so letting $ C = BB^T $ we let $ U $ absorb $ C $ by solving for $ UB $. From this we hope to find results similar to the embeddings produced by the svd and compare different hyper parameters of the problem. 
+	   We will consider the following hyperparameters 
+	   \begin{enumerate}
+	   	 \item[\textbf{Optimizers:}] Gradient Descent, Adagrad, Adagrad-$ \delta $, and Adam
+	   	 \item[\textbf{batch size:}] for values $ 10^i$ for $ i \in [4] $
+	   \end{enumerate}
+	   where we choose $ \lambda = 1e-3 $. One thing to note is that to make sure the run time of comparable for each run, we decrease the number of iterations run as we increase the batch size. we keep the product of the two constant at $ 10^6 $. This will not be perfect as tensorflow may have some hidden behavior under the hood, but it should offer reasonable normalization nonethe less. 
+	   
+		\section{11/15/2017 Research Notes}
+	  Still having challenges computing the svd for each of the individual slices due to memory capacity issues, decided that it would be better to tackle this from the approach of learning a symmetric embedding with a line search method based off of the gradient. Assuming that we have computed the fft along each of the 3-mode tubes then we are given a dense tensor $ fft(P) \in \mathbb{C}^{n \times n \times \ceil{\frac{T}{2}}} $. We then hope to learn a $ d $ dimensional complex embedding $ U \in \mathbb{C}^{n \times d} $ which is 
+	  
+	 
+	
+	\section{11/12/2017 Research Notes}
+	  \subsection{t-svd}
+	    for a given tensor $ P \in \mathbb{R}^{n \times n \times T} $ we want to be able to compute the t-svd for the Tensor along the 3-mode. In our particular case, we are given a set of matrix slices which are all sparse, thus we know that the number of non-zeros of the tensor is proportional to $ O(nT) $. \\
+	    To compute the t-svd we must first compute the fft on each of the $ n^2 $ 3rd mode tubes. 
+	    
+	    Once we compute the fft along the 3rd mode, then we can compute the svd for each of the $ \frac{T}{2} $ slices, and then using this we can combine the slices back together to and compute the ifft along the 3rd mode of the tensor to get the final result of the t-svd.
+	    \subsubsection{Computational Issues}
+	    The primary issue is that this will yield a dense Tensor as the number of non-zeros will become proportional to $ O(n^2T) $ as there is no guarantee that the sparsity pattern of the 
+	    
+	    \subsubsection{Computational Speedups}
+	    \begin{itemize}
+	    	\item Since the domain of the fft is real, then there will be a symmetry along the T domain, which means that we can store the fourier coefficients in $ O(\frac{T}{2}) $ space.
+	    	
+	    	\item Each of the tensor slices are symmetric matrices, so we don't need to compute the fft for all the $ i,j $ tubes, we can compute them for the lower or upper triangular sections of the tubular matrices and then store the result in the opposite size, this would not be wasteful as each matrix is instantiated with all the elements in the tensor. We also could specialize the operations or find a symmetric matrix svd algo/datatype to prevent the need for instantiating all the non-zeros of the tensor. Also because the matrix slices are symmetric, then the svd will be symmetric. 
+	    	
+	    	\item We also don't need to compute the full svd of each of each of the slices, we can compute the top $ k $ singular vectors and compute each $ (i,j) $ as needed in order to not explicitly form the dense $ n^2T $ tensor. With this in mind we could use randomize projection methods in order to diminish the dimensionality of the $ n \times n $ matrix slices, into something that a process could fit into it's virtual memory. 
+	    	Another alternative is to consider is the use of Krylov methods in order to simply think in terms of the matrix vector multiplications to the matrix slices, perhaps using a distributed matrix vector computation.
+	    \end{itemize}
+	    
+	    \subsubsection{Questions}
+	      \begin{itemize}
+	      	\item How much memory does each process spawned by the multiprocessing python module have access to? Does it get the full capacity of a regular process, or does it have to share resources with the parent process? 
+	      	\item how many dimensions can we project down to using the randomized projection method and safely maintain the information of the top $ k $ singular vectors?
+	      \end{itemize}
+	    
+	    
+	    
+	    
+	    
+	    
+	    
+	
+	\newpage
+	\section{10/31/2017 Research Notes}
 	
 	Currently using the tensorflow routine for computing the embedding minimizing the objective function with the Adagrad optimizer with an initial learning rate of .01 . 
 	\[ 
