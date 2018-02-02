@@ -969,7 +969,7 @@ def form_core_tensor_from_svd(years,version):
   if version == 'power':
     prefix = version
   elif version == 'mean_center':
-    prefix = version:
+    prefix = version
   elif version == 'standard':
     prefix = ''
   else:
