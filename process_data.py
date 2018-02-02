@@ -983,7 +983,7 @@ def form_core_tensor_from_svd(years,version):
   core_tensor = np.ndarray((len(years), U.shape[1], U.shape[1]))
   for t,year in enumerate(years):
     #load in each svd and form the core tensor
-    file_name = "svd/wordPairPMI_" + str(year) + "svdU.npy"
+    file_name = "svd_ful/full_wordPairPMI_" + str(year) + "_U.npy"
     U_t = np.load(file_name)
     core_tensor[t] = np.dot(U.t, U_t)
 
