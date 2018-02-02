@@ -36,6 +36,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
+  compute_aligned_svd()
+  '''
   words = ['amazon','apple','disney','obama','clinton','america','pixar',
            'gore','pie','movie','sandwich','plane','war','dollar',
                       'computer']
@@ -51,7 +53,7 @@ def main():
     wordIDs = pickle.load(handle)
   #plot_word_changes(words, U, B, wordIDs)
   plot_core_tensor_eigenvalues(B,use_singular=True)
-
+  '''
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -169,8 +171,35 @@ def load_tSNE_word_cloud(year):
   w2v.plot_embeddings(embedding, indices)
 
 '''-----------------------------------------------------------------------------
+    compute_aligned_svd()
+        This function loads in all the aligned tensor slices and computes 
+      their left singular vectors and singular values in parallel and saves 
+      them into a folder for other uses. This function should be called from 
+      the main folder. 
+-----------------------------------------------------------------------------'''
+def compute_aligned_svd():
+
+  jobs = []
+
+  files = os.listdir('full_aligned_tensor/')
+  for file in files:
+    matrix = sp.load_npz("full_aligned_tensor/" + file)
+    file_prefix = "full_svd/" + file[:-4] + '_'
+
+    p = mp.Process(target=ps.compute_svd, name=file_prefix,
+                   args=(matrix,file_prefix,50))
+    jobs.append(p)
+    p.start()
+    print "started process:" + p.name
+
+  for i in range(len(jobs)):
+    jobs[i].join()
+    print "joined job {}".format(i)
+
+
+'''-----------------------------------------------------------------------------
     sequetial_svd_tSNE()
-      This funciton will process all of the truncated svd factorizations and 
+      This function will process all of the truncated svd factorizations and 
       3 dimension tSNE embeddings of all the PMI matrices in the folder the 
       program is being run in. Specifically the svd factorizations are the first
       50 singulars vectors/values. The program will also create folders in the 

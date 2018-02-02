@@ -21,6 +21,23 @@ def slice_multiply(A, U, slice_index, shared_dict):
  shared_dict[slice_index] =  np.matmul(U.T, np.dot(A,U))
 
 '''-----------------------------------------------------------------------------
+    compute_svd(A, filename_prefix,d)
+        This function is just a wrapper for computing a collection of SVDs 
+        for a list of sparse matrices and then saving the results in parallel. 
+    Input:
+      A - (n x m sparse matrix)
+        a sparse matix 
+      filename_prefix - (string)
+        the place to store the singular vectors and values
+      d - (integer)
+        the number of singular pairs to compute
+-----------------------------------------------------------------------------'''
+def compute_svd(A,filename_prefix,d):
+  u, s, _ = sp.linalg.svds(A, k=d, return_singular_vectors = 'u')
+  np.save(filename_prefix + 'U',u)
+  np.save(filename_prefix + 'sigma',s)
+
+'''-----------------------------------------------------------------------------
     compute_fft(tensor_tubes)
         This function takes in a list of k (n x T) sparse matrices and computes 
       the fft transform for each row in each of sparse matrices, then puts 
