@@ -44,13 +44,13 @@ def main():
   U = np.load(os.path.join(DATA_FILE_PATH,
                            'flattened_svd/1990_to_2008__FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__FSVD_B.npy'))
+                           'flattened_svd/1990_to_2008_mean_center_FSVD_B.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
-  plot_word_changes(words, U, B, wordIDs)
-  #plot_core_tensor_eigenvalues(B)
+  #plot_word_changes(words, U, B, wordIDs)
+  plot_core_tensor_eigenvalues(B,use_singular=True)
 
 
 '''----------------------------------------------------------------------------- 
@@ -911,6 +911,57 @@ def flattened_svd_embedding(years, LO_type = None):
   np.save(filename_base + "_FSVD_sigma.npy",sigma)
   np.save(filename_base + "_FSVD_B.npy",B)
   print "saved files"
+
+'''-----------------------------------------------------------------------------
+  form_core_tensor_from_svd(years)
+      This function takes in a list of years and forms a core tensor from the 
+    mode_1 flattened left singular vectors, and the singular vectors of each 
+    of the PMI matrices to form the core tensor, the final result is then 
+    saved. This function is to be run in the directory containing all the 
+    folders with different files saved.
+  Input:
+    years - (list of ints)
+      This is a list of the years to create the core tensor from. It is 
+      assumed that the valid files for the shared embedding and singular 
+      vectors will exist for the years entered. Errors will be thrown from 
+      trying to load in invalid files. 
+    version - (string)
+      This is a string that indicates the type flattened svd to load. 
+      Options:
+        power 
+         - load in the powered flattened svd shared embedding
+        mean_center 
+         - load in the mean centered flattened svd shared embedding
+        standard 
+         - load in the standard flattened svd shared embedding
+-----------------------------------------------------------------------------'''
+def form_core_tensor_from_svd(years,version):
+  #load in flattened svd shared embedding
+  if version == 'power':
+    prefix = version
+  elif version == 'mean_center':
+    prefix = version:
+  elif version == 'standard':
+    prefix = ''
+  else:
+    raise ValueError("version is not one of the 3 supported option, please "
+                     "choose either power, mean_center, or standard")
+
+  shared_embedding_file_name = 'flattened_svd/' + str(years[0]) +"_to_"+\
+                               str(years[-1])  +"_"+ prefix + "_FSVD_U.npy"
+  U = np.load(shared_embedding_file_name)
+
+  core_tensor = np.ndarray((len(years), U.shape[1], U.shape[1]))
+  for t,year in enumerate(years):
+    #load in each svd and form the core tensor
+    file_name = "svd/wordPairPMI_" + str(year) + "svdU.npy"
+    U_t = np.load(file_name)
+    core_tensor[t] = np.dot(U.t, U_t)
+
+  core_tensor_file_name = 'flattened_svd/' + str(years[0]) +"_to_"+\
+                               str(years[-1])  +"_"+ prefix + "_FSVD2_U.npy"
+  np.save(core_tensor_file_name,core_tensor)
+
 
 
 def hyper_param_search():
