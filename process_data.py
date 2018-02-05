@@ -36,24 +36,24 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  compute_aligned_svd()
-  '''
-  words = ['amazon','apple','disney','obama','clinton','america','pixar',
-           'gore','pie','movie','sandwich','plane','war','dollar',
-                      'computer']
+
+  #words = ['amazon','apple','disney','obama','clinton','america','pixar',
+  # 'gore']
+  words =['pie','movie','sandwich','plane','war','dollar','computer']
 
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
                            'flattened_svd/1990_to_2008__FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008_mean_center_FSVD_B.npy'))
+                           'flattened_svd/1990_to_2008__FSVD2_B'
+                           '.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
-  #plot_word_changes(words, U, B, wordIDs)
-  plot_core_tensor_eigenvalues(B,use_singular=True)
-  '''
+  plot_word_changes(words, U, B, wordIDs)
+  #plot_core_tensor_eigenvalues(B,use_singular=True)
+
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -187,7 +187,7 @@ def compute_aligned_svd():
     file_prefix = "full_svd/" + file[:-4] + '_'
 
     p = mp.Process(target=ps.compute_svd, name=file_prefix,
-                   args=(matrix,file_prefix,50))
+                   args=(matrix,file_prefix,50,'mean_center'))
     jobs.append(p)
     p.start()
     print "started process:" + p.name
@@ -988,7 +988,7 @@ def form_core_tensor_from_svd(years,version):
     core_tensor[t] = np.dot(U.t, U_t)
 
   core_tensor_file_name = 'flattened_svd/' + str(years[0]) +"_to_"+\
-                               str(years[-1])  +"_"+ prefix + "_FSVD2_U.npy"
+                               str(years[-1])  +"_"+ prefix + "_FSVD2_B.npy"
   np.save(core_tensor_file_name,core_tensor)
 
 

@@ -4,7 +4,7 @@ import numpy as np
 from math import floor
 import scipy.sparse as sp
 from scipy import fftpack as f
-
+from word2vec import mean_center
 def process_func(shared_mem,nnz_count):
   name = mp.current_process().name
   i = name - 1
@@ -31,9 +31,21 @@ def slice_multiply(A, U, slice_index, shared_dict):
         the place to store the singular vectors and values
       d - (integer)
         the number of singular pairs to compute
+      linear_operator - (optional string)
+        a string which indicates which type of linear operator should be made 
+        from the matrix before running the svd routine
+        Options:
+          mean_center - 
+            a linear operator which mean centers any vector being mutiplied to 
+            the matrix, and the output of the linear mapping.
 -----------------------------------------------------------------------------'''
-def compute_svd(A,filename_prefix,d):
-  u, s, _ = sp.linalg.svds(A, k=d, return_singular_vectors = 'u')
+def compute_svd(A,filename_prefix,d, linear_operator = None):
+  if linear_operator:
+      u, s, _ = sp.linalg.svds(mean_center(A), k = d, return_singular_vectors
+      = 'u')
+      filename_prefix = filename_prefix + '_' + linear_operator+ '_'
+  else:
+    u, s, _ = sp.linalg.svds(A, k=d, return_singular_vectors = 'u')
   np.save(filename_prefix + 'U',u)
   np.save(filename_prefix + 'sigma',s)
 
