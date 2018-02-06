@@ -36,7 +36,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-
+  form_core_tensor_from_svd(range(1990,2009),'mean_center')
+  '''
   #words = ['amazon','apple','disney','obama','clinton','america','pixar',
   # 'gore']
   words =['pie','movie','sandwich','plane','war','dollar','computer']
@@ -53,7 +54,7 @@ def main():
     wordIDs = pickle.load(handle)
   plot_word_changes(words, U, B, wordIDs)
   #plot_core_tensor_eigenvalues(B,use_singular=True)
-
+  '''
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -184,7 +185,7 @@ def compute_aligned_svd():
   files = os.listdir('full_aligned_tensor/')
   for file in files:
     matrix = sp.load_npz("full_aligned_tensor/" + file)
-    file_prefix = "full_svd/" + file[:-4] + '_'
+    file_prefix = "full_svd/" + file[:-4]
 
     p = mp.Process(target=ps.compute_svd, name=file_prefix,
                    args=(matrix,file_prefix,50,'mean_center'))
@@ -983,7 +984,7 @@ def form_core_tensor_from_svd(years,version):
   core_tensor = np.ndarray((len(years), U.shape[1], U.shape[1]))
   for t,year in enumerate(years):
     #load in each svd and form the core tensor
-    file_name = "svd_ful/full_wordPairPMI_" + str(year) + "_U.npy"
+    file_name = "svd_ful/full_wordPairPMI_" + str(year) + "__mean_center_U.npy"
     U_t = np.load(file_name)
     core_tensor[t] = np.dot(U.t, U_t)
 
