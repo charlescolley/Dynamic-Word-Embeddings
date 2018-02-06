@@ -36,11 +36,10 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  form_core_tensor_from_svd(range(1990,2009),'mean_center')
-  '''
+#  test_word_embedding()
   #words = ['amazon','apple','disney','obama','clinton','america','pixar',
-  # 'gore']
-  words =['pie','movie','sandwich','plane','war','dollar','computer']
+# 'gore']
+  words =['obama']
 
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
@@ -52,9 +51,10 @@ def main():
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
+  word_trajectories('obama',U,B,wordIDs,30)
   plot_word_changes(words, U, B, wordIDs)
-  #plot_core_tensor_eigenvalues(B,use_singular=True)
-  '''
+ # plot_core_tensor_eigenvalues(B,use_singular=False)
+
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -641,7 +641,7 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
     #sqrt_B = np.dot(vecs, np.diag(sqrt_val))
 
     t_embedding = np.dot(embedding,core_tensor[t])
-    normalize(t_embedding)
+#    normalize(t_embedding)
 
     #add in t_th word embedding in t_th slice to embedding list
     word_embeddings.append((word +'_'+str(t),t_embedding[wordIDs[word],:]))
@@ -984,7 +984,12 @@ def form_core_tensor_from_svd(years,version):
   core_tensor = np.ndarray((len(years), U.shape[1], U.shape[1]))
   for t,year in enumerate(years):
     #load in each svd and form the core tensor
-    file_name = "svd_ful/full_wordPairPMI_" + str(year) + "__mean_center_U.npy"
+    if version == 'mean_center':
+      file_name = "svd_ful/full_wordPairPMI_" + str(year) + \
+                  "__mean_center_U.npy"
+    else:
+      file_name = "svd_ful/full_wordPairPMI_" + str(year) + \
+                  "_U.npy"
     U_t = np.load(file_name)
     core_tensor[t] = np.dot(U.t, U_t)
 
@@ -1200,7 +1205,7 @@ def test_word_embedding():
   get_type = True
   while get_type:
     type = raw_input("Which embedding do you want to load?:\n"
-                     +"tSNE,svdU, tfU, Fsvd\n")
+                     +"tSNE,svdU, tfU, Fsvd, Fsvd2\n")
     if type == "tSNE":
       subfolder = "/tSNE/"
       postfix = "svdU_TSNE."
@@ -1213,7 +1218,7 @@ def test_word_embedding():
       subfolder = "tf_embedding/"
       postfix = ".+tfU."
       get_type = False
-    elif type == "Fsvd":
+    elif type == "Fsvd" or type == "Fsvd2":
       subfolder = "flattened_svd/"
       postfix = ".+FSVD_U."
       get_type = False
@@ -1281,11 +1286,19 @@ def test_word_embedding():
     B_file = list(file)
     B_file[-5] = 'B'
     core_tensor = np.load(subfolder + "".join(B_file))
+  elif type == "Fsvd2":
+    B_file = list(file)
+    B_file[-5] = 'B'
+    B_file.insert(-6,'2')
+    print B_file
+    print subfolder + "".join(B_file)
+    core_tensor = np.load(subfolder + "".join(B_file))
+
 
   n = embedding.shape[0]
 
   #need to load in multiple ID_dictionaries if loading tf_embeddings
-  if type == "tfU" or type == "Fsvd":
+  if type == "tfU" or type == "Fsvd" or type == "Fsvd2":
     if type == "tfU":
       #find years associated with embedding
       start_year = file[12:16]
@@ -1299,11 +1312,13 @@ def test_word_embedding():
       print IDs_file,files
       with open("wordIDs/" + IDs_file[0], 'rb') as handle:
         indices = pickle.load(handle)
+      indices = {value: key for key, value in indices.iteritems()}
     else:
+      start_year = file[:4]
+      end_year = file[8:12]
       with open("wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle", 'rb') as handle:
         indices = pickle.load(handle)
 
-    indices = {value: key for key, value in indices.iteritems()}
 
     load_new_year = True
     while load_new_year:
@@ -1315,10 +1330,9 @@ def test_word_embedding():
       else:
         #form embedding
         core_tensor_index = int(year) - int(start_year)
-        if type == "Fsvd":
+        if type == "Fsvd" or type == "Fsvd2":
 #         semi_def_B = w2v.make_semi_definite(core_tensor[core_tensor_index])
-          semi_def_B = core_tensor[core_tensor_index]
-          vals, vecs = np.linalg.eig(semi_def_B)
+          vals, vecs = np.linalg.eig(core_tensor[core_tensor_index])
           #cut off round off error
 #         vals = np.array(map(lambda x: 0 if abs(x) < 1e-10 else x, vals))
           sqrt_val = map(lambda x: sqrt(x),vals)
