@@ -4,7 +4,8 @@ import numpy as np
 from math import floor
 import scipy.sparse as sp
 from scipy import fftpack as f
-from word2vec import mean_center
+import word2vec as w2v
+
 def process_func(shared_mem,nnz_count):
   name = mp.current_process().name
   i = name - 1
@@ -41,7 +42,7 @@ def slice_multiply(A, U, slice_index, shared_dict):
 -----------------------------------------------------------------------------'''
 def compute_svd(A,filename_prefix,d, linear_operator = None):
   if linear_operator:
-      u, s, _ = sp.linalg.svds(mean_center(A), k = d, return_singular_vectors
+      u, s, _ = sp.linalg.svds(w2v.mean_center(A), k = d, return_singular_vectors
       = 'u')
       filename_prefix = filename_prefix + '_' + linear_operator+ '_'
   else:
