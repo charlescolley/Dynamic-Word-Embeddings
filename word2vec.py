@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from warnings import warn
 from time import clock
 from numpy.linalg import lstsq
 from itertools import izip
@@ -143,6 +144,7 @@ def plot_embeddings(embedding, words =None):
        k). This can be used in the scipy svds routine in order to compute 
        add in the log rank1 update without losing the speed of a matvec in the 
        sparse case. 
+    Input:
     Input:
       matrix - (n x m sparse matrix)
         the pmi matrix to use to compute the word embeddings. 
@@ -922,6 +924,11 @@ def mode_3_fft(A, max_cores=None):
       use_V - (optional bool)
         a boolean indicating whether or not to use the right singular vectors 
         corresponding to the mode-1 flattening. 
+      years_used - (optional list of ints)
+        The list of years used, which are used to load in the singular 
+        vectors of each of the individual time slices to form the core 
+        tensor. This must not be empty if use_V is true, if it is, a warning 
+        will be displayed and use_V will be set to false.
     Return:
       U - (n x k ndarray)
         the shared embedding in question
@@ -930,7 +937,15 @@ def mode_3_fft(A, max_cores=None):
       b - (t x k x k ndarray)
         the approximated core tensor
 -----------------------------------------------------------------------------'''
-def flattened_svd(A,k, LO_type = None,use_V = False, parallel = False):
+def flattened_svd(A,k, LO_type = None,use_V = False,years_used = None):
+
+  if use_V:
+    if not years_used:
+      warn("use_V is True, but no years are passed in, defaulting to use_V = "
+           "False\n")
+      use_V = False
+
+
   T = len(A)
   if LO_type:
     print "using linear operator {}".format(LO_type)
@@ -943,6 +958,12 @@ def flattened_svd(A,k, LO_type = None,use_V = False, parallel = False):
 
 
   if use_V:
+    U, sigma, VT = svds(A_1, k)
+    n = U.shape[0]
+    for t in range(T):
+      filename = "full_svd/full_wordPairPMI_" +str(years_used[t])+ "_U.npy"
+      U_t = np.load(filename)
+      b[t] = np.dot(U_t,VT[:,t*n:(t+1)*n])
 
   else:
     U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
