@@ -36,7 +36,9 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-#  test_word_embedding()
+  flattened_svd_embedding(range(1990,2009),use_V=True)
+
+'''
   #words = ['amazon','apple','disney','obama','clinton','america','pixar',
 # 'gore']
   words =['obama']
@@ -51,10 +53,9 @@ def main():
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
-  word_trajectories('obama',U,B,wordIDs,30)
-  plot_word_changes(words, U, B, wordIDs)
- # plot_core_tensor_eigenvalues(B,use_singular=False)
-
+  # intelligence, machine, game, attack, security
+  word_trajectories('computer',U,B,wordIDs,30)
+'''
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -919,8 +920,18 @@ def save_full_aligned_tensor():
     year += 1
 
 '''-----------------------------------------------------------------------------
+    flattened_svd_embedding(years, LO_type, truncated)
+        This function takes in a list of years, and a pair of strings as 
+      arguments and computes the flattened SVD routine by loading each PMI 
+      slice corresponding to a given year as a frontal slice in the tensor, 
+      and then computing the top 50 left singular vectors corresponding to 
+      the mode-1 flattening of the tensor, to be used as a shared embedding. 
+    Input:
+      years - (list of ints)
+        The years associated with the 
 -----------------------------------------------------------------------------'''
-def flattened_svd_embedding(years, LO_type = None):
+def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
+                            use_V = False):
 
   #check for svd folder
   # check if places for stdout_files existt
@@ -928,14 +939,26 @@ def flattened_svd_embedding(years, LO_type = None):
   if not os.path.exists(path):
     os.makedirs(path)
 
-  slices, _ = get_slices(years,use_full=True)
 
-  U, sigma,B = w2v.flattened_svd(slices,50,LO_type)
+  if use_truncated:
+    # load in the the singular vectors to compute the truncated factorization
+    for year in years:
+      svd_filename_basename = "full_svd/full_wordPairPMI_" +str(year)
+      U = np.load(svd_filename_basename +"_U.npy")
+      S = np.load(svd_filename_basename +"_sigma.npy")
+
+
+  else:
+    slices, _ = get_slices(years,use_full=True)
+
+  U, sigma,B = w2v.flattened_svd(slices,50,LO_type,use_V,years_used=years)
 
   filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[1]) +'_'
 
   if LO_type:
     filename_base = filename_base + LO_type
+  if use_V:
+    filename_base = filename_base + "use_V"
 
   np.save(filename_base + "_FSVD_U.npy",U)
   np.save(filename_base + "_FSVD_sigma.npy",sigma)
