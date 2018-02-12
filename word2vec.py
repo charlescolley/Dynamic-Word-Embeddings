@@ -302,6 +302,35 @@ def matrix_power(matrix,k):
   return A_k
 
 '''-----------------------------------------------------------------------------
+    truncated_svd(U,S,V)
+        This function takes in left and right singular vectors, and a vector of 
+      singular values and returns a linear operator which corresponds to the 
+      truncated svd of the matrix in question. 
+    Input:
+      U - (n x d numpy array)
+        A matrix which corresponds to the left singular vectors.
+      S - (d numpy array)
+        An array corresponding to the singular values of the matrix.
+      V - (optional m x d numpy array)
+        An optional matrix corresponding to the right singular vectors. If no V 
+        is passed in, then the matrix is assumed to be symmetric, and U will 
+        be used for the singular vectors. 
+    Returns:
+      (Linear Operator)
+        Returns the linear operator corresponding to the truncated svd
+-----------------------------------------------------------------------------'''
+def truncated_svd(U, S, V=None):
+  if not V:
+    V = U
+  n = U.shape[0]
+  m = V.shape[0]
+
+  def mat_vec(x):
+    output_vec = np.dot(U,)
+
+
+
+'''-----------------------------------------------------------------------------
     matrix_stats(matrix)
       this function takes in a sparse matrix and returns a collection of 
       statistics about the matrix in question. data reported about the matrix 
@@ -890,9 +919,9 @@ def mode_3_fft(A, max_cores=None):
         see the documentation of create_flattened_Linear_Operators(...). 
         Options:
           mean_center, power
-      parallel - (optional bool)
-        whether or not to run the matrix matrix multiplications with multiple 
-        processes. NOTE: UNTESTED!!!
+      use_V - (optional bool)
+        a boolean indicating whether or not to use the right singular vectors 
+        corresponding to the mode-1 flattening. 
     Return:
       U - (n x k ndarray)
         the shared embedding in question
@@ -901,7 +930,7 @@ def mode_3_fft(A, max_cores=None):
       b - (t x k x k ndarray)
         the approximated core tensor
 -----------------------------------------------------------------------------'''
-def flattened_svd(A,k, LO_type = None,parallel = False):
+def flattened_svd(A,k, LO_type = None,use_V = False, parallel = False):
   T = len(A)
   if LO_type:
     print "using linear operator {}".format(LO_type)
@@ -910,29 +939,18 @@ def flattened_svd(A,k, LO_type = None,parallel = False):
     print "using sparse arrays"
     A_1 = flatten(A)
 
-  U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
-  
   b = np.ndarray((T, k, k))
-  if parallel:
-    #compute the core tensor in parallel
-    manager = mp.Manager()
-    return_dict = manager.dict()
-    jobs = []
-    for t in range(T):
-      p = mp.Process(target=slice_multiply, args=(A[t], U, t, return_dict))
-      jobs.append(p)
-      p.start()
-
-    for i in range(T):
-      jobs[i].join()
 
 
-    for t in range(T):
-      b[t] = return_dict[t]
+  if use_V:
+
   else:
+    U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
     for t in range(T):
       A[t] = A[t].tocsr()
-      b[t] = np.dot(U.T,A[t].dot(U))
+      b[t] = np.dot(U.T, A[t].dot(U))
+
+
 
 
   return U, sigma, b
