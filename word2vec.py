@@ -328,7 +328,16 @@ def truncated_svd(U, S, V=None):
   m = V.shape[0]
 
   def mat_vec(x):
-    output_vec = np.dot(U,)
+    output_vec = np.dot(V.T, x)
+    output_vec = S * output_vec
+    return np.dot(U,output_vec)
+
+  def rmat_vec(x):
+    output_vec = np.dot(U.T, x)
+    output_vec = S * output_vec
+    return np.dot(V,output_vec)
+
+  return LinearOperator((n,m),mat_vec, rmatvec = rmat_vec)
 
 
 
@@ -920,7 +929,7 @@ def mode_3_fft(A, max_cores=None):
         the mode one flattening. For documentation on each of the options, 
         see the documentation of create_flattened_Linear_Operators(...). 
         Options:
-          mean_center, power
+          mean_center, power, already_applied
       use_V - (optional bool)
         a boolean indicating whether or not to use the right singular vectors 
         corresponding to the mode-1 flattening. 
@@ -991,7 +1000,14 @@ def flattened_svd(A,k, LO_type = None,use_V = False,years_used = None):
         The string which will determine which type of linear operator should 
         be created from each slice.
         Options:
-          mean_center, power
+          mean_center 
+            - mean centers any incoming vectors, and the resulting output 
+              vector from the linear mapping. 
+          power 
+            - powers each one of the matrices according to the power k, 
+              passed in 
+          already_applied 
+            - the list of slices are already a list of linear operators.
       k - (optional int)
         This integer is only used if the LO_type is power. This k corresponds to
         the power of k each matrix will be powered to.  
@@ -1018,6 +1034,8 @@ def create_flattened_Linear_Operators(slices, LO_type, k=2):
       LO_slices.append(mean_center(slice))
     elif LO_type == "power":
       LO_slices.append(matrix_power(slice,k))
+    elif LO_type == "already_applied":
+      LO_slices = slices
     else:
       raise ValueError("invalid Linear Operator type")
 
