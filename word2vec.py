@@ -970,9 +970,9 @@ def flattened_svd(A,k, LO_type = None,use_V = False,years_used = None):
     U, sigma, VT = svds(A_1, k)
     n = U.shape[0]
     for t in range(T):
-      filename = "full_svd/full_wordPairPMI_" +str(years_used[t])+ "_U.npy"
-      U_t = np.load(filename)
-      b[t] = np.dot(U_t,VT[:,t*n:(t+1)*n])
+ #     filename = "full_svd/full_wordPairPMI_" +str(years_used[t])+ "_U.npy"
+  #    U_t = np.load(filename)
+      b[t] = np.dot(VT[:,t*n:(t+1)*n].T,VT[:,t*n:(t+1)*n])
 
   else:
     U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")
