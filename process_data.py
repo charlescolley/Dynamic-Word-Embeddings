@@ -956,7 +956,7 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
 
   U, sigma,B = w2v.flattened_svd(slices,50,LO_type,use_V,years_used=years)
 
-  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[1]) +'_'
+  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[-1]) +'_'
 
   if LO_type:
     filename_base = filename_base +'_' + LO_type
