@@ -36,10 +36,11 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  flattened_svd_embedding(range(1990,2009),use_V=True)
+  t_svd(range(1990,1996),50)
 
   '''
-  words = ['amazon','apple','disney','obama','clinton','america','pixar', 'gore']
+  #words = ['amazon','apple','disney','obama','clinton','america','pixar',
+  # 'gore']
   #words =['obama']
 
   #load in the U and B for the test
@@ -54,7 +55,8 @@ def main():
     wordIDs = pickle.load(handle)
   # intelligence, machine, game, attack, security
   #plot_word_changes(words,U,B,wordIDs)
-  word_trajectories('obama',U,B,wordIDs,11)
+
+  word_trajectories('obama',U,B,wordIDs,30)
   '''
 
 '''----------------------------------------------------------------------------- 
@@ -971,6 +973,42 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
   np.save(filename_base + "_FSVD_sigma.npy",sigma)
   np.save(filename_base + "_FSVD_B.npy",B)
   print "saved files"
+
+'''-----------------------------------------------------------------------------
+   t_svd(years,d)
+       This function takes in a list of years and computes the t_svd for tensor 
+     built by the aligned pmi matrices for the given year. The algorithm uses 
+     the block circulant linear operator and saves the left and right 
+     singular vectors in the t_svd folder which is generated if none exists. 
+     It should be noted that the left and right singular vectors will be 
+     block circulant, thus one should never set the dimension of the 
+     embedding higher than n (number of words in the aligned corpus). 
+   Input:
+     years - (list of ints)
+       the list of years for each of the PMI matrices to be loaded in from. 
+     d - (int)
+       dimension of the embedding, should always be less than or equal to n. 
+-----------------------------------------------------------------------------'''
+def t_svd(years,d):
+  # check if places for stdout_files exist
+  path = os.path.join(os.getcwd(), 't_svd')
+  if not os.path.exists(path):
+    os.makedirs(path)
+
+  #load in slices
+  slices, _ = get_slices(years, use_full=True)
+
+  U, sigma, VT = svds(w2v.block_circulant(slices),k=d)
+
+  filename_base = 't_svd/'+str(years[0]) +'_to_' + str(years[-1]) + \
+                  "_d_" + str(d)
+
+  np.save(filename_base + "_t_SVD_U.npy",U)
+  np.save(filename_base + "_t_SVD_sigma.npy",sigma)
+  np.save(filename_base + "_t_SVD_V.npy",VT.T)
+  print "saved files"
+
+
 
 '''-----------------------------------------------------------------------------
   form_core_tensor_from_svd(years)

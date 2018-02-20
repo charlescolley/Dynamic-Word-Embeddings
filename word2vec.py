@@ -304,6 +304,39 @@ def matrix_power(matrix,k):
   return A_k
 
 '''-----------------------------------------------------------------------------
+   blocK_circulant(slices)
+     This function takes in a list of frontal slices and returns a linear 
+     operator corresponding to creating a block circulant matrix out of the 
+     frontal slices. 
+   Input:
+     slices - (list of n x m scipy sparse matrices)
+       The frontal slices of the tensor in question. 
+   Returns:
+     bcirc - (Linear Operator)
+-----------------------------------------------------------------------------'''
+def block_circulant(slices):
+  T = len(slices)
+  (n,m) = slices[0].shape
+
+  def mat_vec(v):
+    output_vec = np.zeros(n*T)
+    for i in range(T):
+      for j in range(T):
+        output_vec[i*n:(i+1)*n] += \
+          slices[(i + (T - j))%T] * v[j * m:(j + 1) * m]
+    return output_vec
+
+  def rmat_vec(v):
+    output_vec = np.zeros(m * T)
+    for i in range(T):
+      for j in range(T):
+        output_vec[i * m:(i + 1) * m] \
+          += slices[(j + (T - i)) % T].T * v[j * n:(j + 1) * n]
+    return output_vec
+
+  return LinearOperator((n*T,m*T),mat_vec, rmatvec = rmat_vec)
+
+'''-----------------------------------------------------------------------------
     truncated_svd(U,S,V)
         This function takes in left and right singular vectors, and a vector of 
       singular values and returns a linear operator which corresponds to the 
