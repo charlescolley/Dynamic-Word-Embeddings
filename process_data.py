@@ -38,24 +38,24 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 def main():
   flattened_svd_embedding(range(1990,2009),use_V=True)
 
-'''
-  #words = ['amazon','apple','disney','obama','clinton','america','pixar',
-# 'gore']
-  words =['obama']
+  '''
+  words = ['amazon','apple','disney','obama','clinton','america','pixar', 'gore']
+  #words =['obama']
 
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__FSVD_U.npy'))
+                           'flattened_svd/1990_to_2008__use_V_FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__FSVD2_B'
+                           'flattened_svd/1990_to_2008__use_V_FSVD_B'
                            '.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
     wordIDs = pickle.load(handle)
   # intelligence, machine, game, attack, security
-  word_trajectories('computer',U,B,wordIDs,30)
-'''
+  #plot_word_changes(words,U,B,wordIDs)
+  word_trajectories('obama',U,B,wordIDs,11)
+  '''
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -932,7 +932,7 @@ def save_full_aligned_tensor():
 -----------------------------------------------------------------------------'''
 def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
                             use_V = False):
-
+  d = 150
   #check for svd folder
   # check if places for stdout_files existt
   path = os.path.join(os.getcwd(), 'flattened_svd')
@@ -954,9 +954,9 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
   else:
     slices, _ = get_slices(years,use_full=True)
 
-  U, sigma,B = w2v.flattened_svd(slices,50,LO_type,use_V,years_used=years)
+  U, sigma,B = w2v.flattened_svd(slices,d,LO_type,use_V,years_used=years)
 
-  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[-1]) +'_'
+  filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])
 
   if LO_type:
     filename_base = filename_base +'_' + LO_type
@@ -964,6 +964,8 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
     filename_base = filename_base +"_truncated"
   if use_V:
     filename_base = filename_base + "_use_V"
+
+  filname_base = filename_base +"_d_" + str(d)
 
   np.save(filename_base + "_FSVD_U.npy",U)
   np.save(filename_base + "_FSVD_sigma.npy",sigma)
