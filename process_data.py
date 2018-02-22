@@ -36,7 +36,8 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  t_svd(range(1990,1996),50)
+  flattened_svd_embedding(range(1998,2017), use_V = True)
+
 
   '''
   #words = ['amazon','apple','disney','obama','clinton','america','pixar',
@@ -933,8 +934,7 @@ def save_full_aligned_tensor():
         The years associated with the 
 -----------------------------------------------------------------------------'''
 def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
-                            use_V = False):
-  d = 150
+                            use_V = False,d = 50):
   #check for svd folder
   # check if places for stdout_files existt
   path = os.path.join(os.getcwd(), 'flattened_svd')
