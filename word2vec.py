@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from functools import reduce
 import gradients as grad
 import multiprocessing as mp
-from process_scipts import compute_fft
+#from process_scipts import compute_fft
 import os
 import psutil
 #import plotly.offline as py
@@ -21,7 +21,18 @@ import process_data as pd
 from process_scipts import slice_multiply
 
 def main():
-  print "hello world"
+  n = 5
+  m = 6
+  T = 5
+  slices = []
+  for t in range(T):
+    slices.append(sp.random(n,m,density=1))
+
+  x = np.random.rand(n*T,1)
+  bcm = block_circulant(slices)
+  bcm.rmatvec(x)
+
+
 
 
 '''-----------------------------------------------------------------------------
@@ -319,17 +330,35 @@ def block_circulant(slices):
   (n,m) = slices[0].shape
 
   def mat_vec(v):
-    output_vec = np.zeros(n*T)
+
+    if v.shape == (m*T,):
+      output_vec = np.empty(n*T)
+    elif v.shape == (m*T,1):
+      output_vec = np.empty((n*T,1))
+    else:
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
+
     for i in range(T):
-      for j in range(T):
+      output_vec[i*n:(i+1)*n] = slices[i] * v[0:m]
+      for j in range(1,T):
         output_vec[i*n:(i+1)*n] += \
           slices[(i + (T - j))%T] * v[j * m:(j + 1) * m]
     return output_vec
 
   def rmat_vec(v):
-    output_vec = np.zeros(m * T)
+
+    if v.shape == (n * T,):
+      output_vec = np.empty(m * T)
+    elif v.shape == (n * T, 1):
+      output_vec = np.empty((m * T, 1))
+    else:
+      raise ValueError("non-vector passed into mat_vec, object of shape {"
+                       "}".format(v.shape))
+
     for i in range(T):
-      for j in range(T):
+      output_vec[i*m:(i+1)*m] = slices[(T- i)%T].T*v[0:n]
+      for j in range(1,T):
         output_vec[i * m:(i + 1) * m] \
           += slices[(j + (T - i)) % T].T * v[j * n:(j + 1) * n]
     return output_vec
