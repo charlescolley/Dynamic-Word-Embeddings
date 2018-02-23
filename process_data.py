@@ -645,7 +645,7 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
     #sqrt_B = np.dot(vecs, np.diag(sqrt_val))
 
     t_embedding = np.dot(embedding,core_tensor[t])
-#    normalize(t_embedding)
+    normalize(t_embedding)
 
     #add in t_th word embedding in t_th slice to embedding list
     word_embeddings.append((word +'_'+str(t),t_embedding[wordIDs[word],:]))
@@ -756,6 +756,7 @@ def collect_embedding_distances(word_embedding,core_tensor):
       Currently only supports addition and subtraction
 -----------------------------------------------------------------------------'''
 def word_embedding_arithmetic(embedding, indices, k):
+  print embedding.shape
   get_equation = True
   while get_equation:
     equation = raw_input("input embedding arithmetic \n" +
@@ -1008,8 +1009,6 @@ def t_svd(years,d):
   np.save(filename_base + "_t_SVD_V.npy",VT.T)
   print "saved files"
 
-
-
 '''-----------------------------------------------------------------------------
   form_core_tensor_from_svd(years)
       This function takes in a list of years and forms a core tensor from the 
@@ -1064,8 +1063,6 @@ def form_core_tensor_from_svd(years,version):
   core_tensor_file_name = 'flattened_svd/' + str(years[0]) +"_to_"+\
                                str(years[-1])  +"_"+ prefix + "_FSVD2_B.npy"
   np.save(core_tensor_file_name,core_tensor)
-
-
 
 def hyper_param_search():
   years = [2016]
@@ -1178,7 +1175,6 @@ def test_tensorflow(iterations, lambda1,lambda2,d,method,batch_size,years):
       pickle.dump(sharedIDs,handle,protocol=pickle.HIGHEST_PROTOCOL)
     print "saved IDs"
 
-
 '''-----------------------------------------------------------------------------
     plot_performance()
       This function loads in results from different runs of the optimizers to 
@@ -1230,7 +1226,6 @@ def plot_performance():
       w2v.evaluate_embedding(U,B,param_dict['lambda1'],param_dict['lambda1'],
                              years)
 
-
 '''-----------------------------------------------------------------------------
     plot_B_spectrums()
       This function is creates a plot of the eigenvalues of all the core 
@@ -1260,6 +1255,7 @@ def plot_B_spectrums():
   plt.show()
 
 
+
 #todo: REMOVE WORDS IN INITIAL LIST FROM RESULTS
 '''-----------------------------------------------------------------------------
     test_word_embedding()
@@ -1273,7 +1269,7 @@ def test_word_embedding():
   get_type = True
   while get_type:
     type = raw_input("Which embedding do you want to load?:\n"
-                     +"tSNE,svdU, tfU, Fsvd, Fsvd2\n")
+                     +"tSNE,svdU, tfU, Fsvd, Fsvd2, FsvdV, t_svd\n")
     if type == "tSNE":
       subfolder = "/tSNE/"
       postfix = "svdU_TSNE."
@@ -1290,20 +1286,31 @@ def test_word_embedding():
       subfolder = "flattened_svd/"
       postfix = ".+FSVD_U."
       get_type = False
+    elif type == "FsvdV":
+      subfolder = "flattened_svd/"
+      postfix = ".+use_V_FSVD."
+      get_type = False
+    elif type == "t_svd":
+      subfolder = "t_svd/"
+      get_type = False
     else:
       print "invalid embedding choice"
 
   get_year = True
   while get_year:
 
-    if subfolder == "tf_embedding/" or subfolder == "flattened_svd/":
+    if subfolder == "tf_embedding/" or subfolder == "flattened_svd/" or \
+        subfolder == "t_svd/":
       if subfolder == "tf_embedding/" :
         pattern = re.compile(".*tfU.*")
+      elif subfolder == "t_svd/":
+        pattern = re.compile(".*t_SVD_[U,V].*")
       else:
         pattern = re.compile(".*FSVD_U.npy")
-      files = os.listdir(os.getcwd() + '/' + subfolder)
-      #find all tfU files
-      files = filter(lambda x: re.match(pattern,x), files)
+
+
+      files = filter(lambda x: re.match(pattern,x),
+                     os.listdir(os.getcwd() + '/' + subfolder))
       print "found the following files"
       for file in enumerate(files):
         print file
@@ -1341,8 +1348,11 @@ def test_word_embedding():
         get_year = False
       
   #load in tSNE file
-  print file
-  embedding = np.load(subfolder + file)
+  if type == "t_svd":
+    full_embedding = np.load(subfolder + file)
+  else:
+    embedding = np.load(subfolder + file)
+    n = embedding.shape[0]
 
   if type == "tfU":
     if (raw_input("load core tensor? enter [y] to include B in embedding\n")
@@ -1350,23 +1360,15 @@ def test_word_embedding():
       B_file = list(file) #loads the B tensor TODO: Make this more robust
       B_file[-5] = 'B'
       core_tensor = np.load(subfolder + "".join(B_file))
-  elif type == "Fsvd":
+  elif type == "Fsvd" or type == "Fsvd2":
     B_file = list(file)
     B_file[-5] = 'B'
+    if type == "Fsvd2":
+      B_file.insert(-6, '2')
     core_tensor = np.load(subfolder + "".join(B_file))
-  elif type == "Fsvd2":
-    B_file = list(file)
-    B_file[-5] = 'B'
-    B_file.insert(-6,'2')
-    print B_file
-    print subfolder + "".join(B_file)
-    core_tensor = np.load(subfolder + "".join(B_file))
-
-
-  n = embedding.shape[0]
 
   #need to load in multiple ID_dictionaries if loading tf_embeddings
-  if type == "tfU" or type == "Fsvd" or type == "Fsvd2":
+  if type == "tfU" or type == "Fsvd" or type == "Fsvd2" or type == "t_svd":
     if type == "tfU":
       #find years associated with embedding
       start_year = file[12:16]
@@ -1397,17 +1399,24 @@ def test_word_embedding():
         load_new_year = False
       else:
         #form embedding
-        core_tensor_index = int(year) - int(start_year)
-        if type == "Fsvd" or type == "Fsvd2":
-#         semi_def_B = w2v.make_semi_definite(core_tensor[core_tensor_index])
-          vals, vecs = np.linalg.eig(core_tensor[core_tensor_index])
-          #cut off round off error
-#         vals = np.array(map(lambda x: 0 if abs(x) < 1e-10 else x, vals))
-          sqrt_val = map(lambda x: sqrt(x),vals)
-          sqrt_B = np.dot(vecs,np.diag(sqrt_val))
-          new_embedding = np.dot(embedding,sqrt_B)
+        chosen_year_index = int(year) - int(start_year)
+        if type == "t_svd":
+          T = int(end_year) - int(start_year) + 1
+          n = full_embedding.shape[0]/T
+          new_embedding = \
+            full_embedding[chosen_year_index*n:(chosen_year_index+1)*n,:]
         else:
-          new_embedding = np.dot(embedding,core_tensor[core_tensor_index])
+          if type == "Fsvd" or type == "Fsvd2":
+  #         semi_def_B = w2v.make_semi_definite(core_tensor[core_tensor_index])
+            vals, vecs = np.linalg.eig(core_tensor[chosen_year_index])
+            #cut off round off error
+  #         vals = np.array(map(lambda x: 0 if abs(x) < 1e-10 else x, vals))
+            sqrt_val = map(lambda x: sqrt(x),vals)
+            sqrt_B = np.dot(vecs,np.diag(sqrt_val))
+            new_embedding = np.dot(embedding,sqrt_B)
+          else:
+            new_embedding = np.dot(embedding,core_tensor[chosen_year_index])
+
         normalize(new_embedding)
 
         get_k = True
@@ -1457,6 +1466,7 @@ def normalize(embedding,mode=1):
   size = embedding.shape[mode-1]
   if mode == 1:
     for i in range(size):
+      print np.linalg.norm(embedding[i,:])
       embedding[i,:] = embedding[i,:]/np.linalg.norm(embedding[i,:])
   else:
     for i in range(size):
