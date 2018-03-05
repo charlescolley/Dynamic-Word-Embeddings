@@ -36,20 +36,18 @@ UPDATE_FREQUENCY_CONSTANT = 10.0
 
 #run by global filelocation or argument if passed in
 def main():
-  flattened_svd_embedding(range(1998,2017), use_V = True)
-
 
   '''
   #words = ['amazon','apple','disney','obama','clinton','america','pixar',
   # 'gore']
   #words =['obama']
+  '''
 
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__use_V_FSVD_U.npy'))
+                           'flattened_svd/1990_to_2008_use_V_d_50_FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008__use_V_FSVD_B'
-                           '.npy'))
+                           'flattened_svd/1990_to_2008_use_V_d_50_FSVD_B.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
@@ -57,8 +55,8 @@ def main():
   # intelligence, machine, game, attack, security
   #plot_word_changes(words,U,B,wordIDs)
 
-  word_trajectories('obama',U,B,wordIDs,30)
-  '''
+  word_trajectories('attack',U,B,wordIDs,30,neighbor_method='all')
+
 
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
@@ -119,7 +117,6 @@ def plot_word_changes(words,shared_embedding, core_tensor,wordIDs):
       collect_embedding_distances(shared_embedding[wordIDs[test_word], :],core_tensor)
 
     T = len(compared_to_t_0_CD) + 1
-
 
     axes[0, 0].set_title("Cosine Distances Compared to t_0")
     axes[0, 0].set_xlabel("time slice t")
@@ -609,7 +606,7 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
   return shared_wordIDs
 
 '''-----------------------------------------------------------------------------
-    word_trajectories(embedding)
+    word_trajectories(word, embeddding, core_tensor_wordIDs,k,neighbor_method)
         This function takes in an embedding from the flattened_svd method and 
       an integer and creates a plot watching how the words have shifted
     Input:
@@ -617,7 +614,7 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
         the word to plot the word trajectory for
       embedding - (n x d numpy matrix)
         The d dimensional embedding in question
-      core_tessor - (d x d x T numpy ndarray)
+      core_tensor - (d x d x T numpy ndarray)
         The core tensor relating the time slices together. 
       wordID - (dictionary)
         A dictionary which links the words in the embedding to their 
@@ -625,10 +622,22 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
         are the indices. 
       k - (positive integer)
         An integer indicating the number of nearest neighbors to consider 
-    Note:
------------------------------------------------------------------------------'''
-def word_trajectories(word, embedding,core_tensor,wordIDs,k):
+      neighbor_method - (string)
+        an optional string indicating the way to find the embeddings for the 
+        nearest neighbors in the plot. 
+        options: 
+          "first" (default) - 
+            keep the embedding for the year corresponding to the first time the 
+            neighbor shows up as a nearest neighbor. 
+          "average" - 
+            average all the emebeddings together for every instance the 
+            neighbor appears as a nearest neighbor.  
+          "all" - 
+            plot all of the nearest neighbors and mark the word with a time 
+            stamp.
 
+-----------------------------------------------------------------------------'''
+def word_trajectories(word, embedding,core_tensor,wordIDs,k,neighbor_method = "first"):
   T = core_tensor.shape[0]
   d = core_tensor.shape[1]
   seen_neighbors = []
@@ -649,24 +658,42 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
 
     #add in t_th word embedding in t_th slice to embedding list
     word_embeddings.append((word +'_'+str(t),t_embedding[wordIDs[word],:]))
+    nearest_neighbors.append(k_nearest_neighbors(word, k, t_embedding, wordIDs))
 
-
-    nearest_neighbors.append(k_nearest_neighbors(word,k,t_embedding,wordIDs))
-
-    #remove neighbors already seen in the embedding
-    if t != 0:
-      seen_neighbors.extend(nearest_neighbors[t-1])
-      nearest_neighbors[t] = \
-        filter(lambda (x,_): x not in map(lambda (y,_): y,seen_neighbors),
-               nearest_neighbors[t])
+    if neighbor_method == "first":
+      #remove neighbors already seen in the embedding
+      if t != 0:
+        seen_neighbors.extend(nearest_neighbors[t-1])
+        nearest_neighbors[t] = \
+          filter(lambda (x,_): x not in map(lambda (y,_): y,seen_neighbors),
+                 nearest_neighbors[t])
 
     #add the neighbors embeddings into a list
     for (neighbor,_) in nearest_neighbors[t]:
-      word_embeddings.append((neighbor, t_embedding[wordIDs[neighbor],:]))
+      if neighbor_method == 'all':
+        word_embeddings.append((neighbor + '_' + str(t),
+                                t_embedding[wordIDs[neighbor],:]))
+      else:
+        word_embeddings.append((neighbor, t_embedding[wordIDs[neighbor],:]))
+
+  if neighbor_method == "average":
+    averaged_embeddings = []
+    for word in set(map(lambda x: x[0], word_embeddings)):
+      all_embeddings = filter(lambda x: x[0] == word, word_embeddings)
+      if len(all_embeddings) > 1:
+        averaged_embedding = reduce(lambda x,y: x[1] + y[1], all_embeddings)
+    #    averaged_embedding = averaged_embedding / len(all_embeddings)
+        averaged_embeddings.\
+          append((word, averaged_embedding/np.linalg.norm(averaged_embedding)))
+      else:
+        averaged_embeddings.append(all_embeddings[0])
+
+    word_embeddings = averaged_embeddings
+
 
   #aggregate all the embeddings into a single numpy array
   unique_words = len(word_embeddings)
-  final_U = np.empty((unique_words,d),dtype=np.complex)
+  final_U = np.empty((unique_words,d),dtype=np.float64)
   for i in range(unique_words):
     final_U[i,:] = word_embeddings[i][1]
 
@@ -675,6 +702,8 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k):
 
   for i in range(unique_words):
     plt.annotate(word_embeddings[i][0], (tsne_data[i,0],tsne_data[i,1]))
+  plt.title("word trajectory of {},k = {} neighbor method: {}".\
+            format(word, k,neighbor_method))
   plt.show()
 
 '''-----------------------------------------------------------------------------
@@ -756,7 +785,7 @@ def collect_embedding_distances(word_embedding,core_tensor):
       Currently only supports addition and subtraction
 -----------------------------------------------------------------------------'''
 def word_embedding_arithmetic(embedding, indices, k):
-  print embedding.shape
+
   get_equation = True
   while get_equation:
     equation = raw_input("input embedding arithmetic \n" +
@@ -1288,7 +1317,6 @@ def test_word_embedding():
       get_type = False
     elif type == "FsvdV":
       subfolder = "flattened_svd/"
-      postfix = ".+use_V_FSVD."
       get_type = False
     elif type == "t_svd":
       subfolder = "t_svd/"
@@ -1303,11 +1331,12 @@ def test_word_embedding():
         subfolder == "t_svd/":
       if subfolder == "tf_embedding/" :
         pattern = re.compile(".*tfU.*")
+      elif type == "FsvdV":
+        pattern = re.compile(".*use_V.*U.*")
       elif subfolder == "t_svd/":
         pattern = re.compile(".*t_SVD_[U,V].*")
       else:
         pattern = re.compile(".*FSVD_U.npy")
-
 
       files = filter(lambda x: re.match(pattern,x),
                      os.listdir(os.getcwd() + '/' + subfolder))
@@ -1360,7 +1389,7 @@ def test_word_embedding():
       B_file = list(file) #loads the B tensor TODO: Make this more robust
       B_file[-5] = 'B'
       core_tensor = np.load(subfolder + "".join(B_file))
-  elif type == "Fsvd" or type == "Fsvd2":
+  elif type == "Fsvd" or type == "Fsvd2" or type == "FsvdV":
     B_file = list(file)
     B_file[-5] = 'B'
     if type == "Fsvd2":
@@ -1368,7 +1397,8 @@ def test_word_embedding():
     core_tensor = np.load(subfolder + "".join(B_file))
 
   #need to load in multiple ID_dictionaries if loading tf_embeddings
-  if type == "tfU" or type == "Fsvd" or type == "Fsvd2" or type == "t_svd":
+  if type == "tfU" or type == "Fsvd" or type == "Fsvd2" or type == "t_svd" or\
+      type == "FsvdV":
     if type == "tfU":
       #find years associated with embedding
       start_year = file[12:16]
@@ -1388,7 +1418,6 @@ def test_word_embedding():
       end_year = file[8:12]
       with open("wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle", 'rb') as handle:
         indices = pickle.load(handle)
-
 
     load_new_year = True
     while load_new_year:
@@ -1466,7 +1495,6 @@ def normalize(embedding,mode=1):
   size = embedding.shape[mode-1]
   if mode == 1:
     for i in range(size):
-      print np.linalg.norm(embedding[i,:])
       embedding[i,:] = embedding[i,:]/np.linalg.norm(embedding[i,:])
   else:
     for i in range(size):
