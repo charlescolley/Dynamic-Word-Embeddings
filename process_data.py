@@ -45,9 +45,9 @@ def main():
 
   #load in the U and B for the test
   U = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008_use_V_d_50_FSVD_U.npy'))
+                           'flattened_svd/1990_to_2008_use_V_d_150_FSVD_U.npy'))
   B = np.load(os.path.join(DATA_FILE_PATH,
-                           'flattened_svd/1990_to_2008_use_V_d_50_FSVD_B.npy'))
+                           'flattened_svd/1990_to_2008_use_V_d_150_FSVD_B.npy'))
   with open(os.path.join(DATA_FILE_PATH,
                          'wordIDs/wordPairPMI_1990_to_2016wordIDs.pickle'),
                          'r') as handle:
@@ -55,7 +55,17 @@ def main():
   # intelligence, machine, game, attack, security
   #plot_word_changes(words,U,B,wordIDs)
 
-  word_trajectories('attack',U,B,wordIDs,30,neighbor_method='all')
+  test_words = ['apple','pixar','movie','game','computer','obama','school',
+                'election','clinton','bush','coffee','matrix','math',
+                'intelligence','artificial','food','america','car','phone',
+                'disney','google','ford','securities','mortgage','house',
+                'nasdaq','market']
+
+  os.chdir("/home/ccolle01/Documents/Dynamic-Word-Embeddings/latex/images"
+           "/3_6_tests")
+
+  norm_difference_histogram(U,B,1990)
+
 
 
 '''----------------------------------------------------------------------------- 
@@ -276,6 +286,39 @@ def get_word_indices():
     print "saved" + name
 
 '''-----------------------------------------------------------------------------
+    norm_difference_histogram(embedding1,embedding2)
+      This function takes in a shared embedding, core tensor, and a start 
+      year and creates a histogram of all the differences between each years 
+      word embedding from the initial word embedding. 
+    Input:
+      shared_embedding - (n x d numpy array)
+        each of the embeddings to be compared against one another.
+      core_tensor - (d x d x T ndarray)
+        the transformation of the shared embedding for each time slice. 
+      start_year - (int)
+        the starting year of the time embedding, used for creating the legend. 
+-----------------------------------------------------------------------------'''
+def norm_difference_histogram(shared_embedding, core_tensor, start_year):
+  n = shared_embedding.shape[0]
+  T = core_tensor.shape[0]
+
+  differences = np.empty(n)
+
+  embedding1 = np.dot(shared_embedding, core_tensor[0])
+  normalize(embedding1)
+
+  for t in xrange(1,T):
+    embedding2 = np.dot(shared_embedding, core_tensor[t])
+    normalize(embedding2)
+    for i in xrange(n):
+      differences[i] = np.linalg.norm(embedding1[i,:] -embedding2[i,
+                                                                :])
+    plt.hist(differences,bins=50, alpha =.5, ec = 'black')
+  plt.legend(range(start_year,start_year+T+1))
+  plt.show()
+
+
+'''-----------------------------------------------------------------------------
     read_in_pmi(filename, returned_scaled_count, max_words, display_progress)
       This function takes in a filename and returns a pmi matrix stored in 
       the location. The file is assumed to be formatted as 
@@ -476,7 +519,7 @@ def convert_to_scipy(years):
     file_name = "scipy_files/wordPairPMI_" + str(years[t]) + ".npz"
     sp.save_npz(file_name,slice.tocoo())
 
-'''-----------------------------------------------------------------------------
+'''----------------------------------------------------------------------------
     filter_up_to_kth_largest(matrix, k)
       This function takes in a sparse dok matrix and returns a sparse csr 
       matrix with only the kth largest non-zeros in the array.
@@ -622,7 +665,7 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
         are the indices. 
       k - (positive integer)
         An integer indicating the number of nearest neighbors to consider 
-      neighbor_method - (string)
+      neighbor_method - (optional string)
         an optional string indicating the way to find the embeddings for the 
         nearest neighbors in the plot. 
         options: 
@@ -635,9 +678,15 @@ def normalize_wordIDs(P_slices, wordIDs, take_union = True):
           "all" - 
             plot all of the nearest neighbors and mark the word with a time 
             stamp.
-
+      save - (optional bool)
+        optional boolean which indicated whether or not to save the file. 
+        File name is generated from word, k, and neighbor_method. 
+      use_plotly - (optional bool)
+        optional boolean which indicates to use the plotly functions in 
+        word2vec.py, computes a 3D TSNE embedding with this. 
 -----------------------------------------------------------------------------'''
-def word_trajectories(word, embedding,core_tensor,wordIDs,k,neighbor_method = "first"):
+def word_trajectories(word, embedding,core_tensor,wordIDs,k,neighbor_method =
+"first", save= False, use_plotly = False):
   T = core_tensor.shape[0]
   d = core_tensor.shape[1]
   seen_neighbors = []
@@ -678,13 +727,14 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k,neighbor_method = "f
 
   if neighbor_method == "average":
     averaged_embeddings = []
-    for word in set(map(lambda x: x[0], word_embeddings)):
-      all_embeddings = filter(lambda x: x[0] == word, word_embeddings)
+    for neighbor in set(map(lambda x: x[0], word_embeddings)):
+      all_embeddings = filter(lambda x: x[0] == neighbor, word_embeddings)
       if len(all_embeddings) > 1:
         averaged_embedding = reduce(lambda x,y: x[1] + y[1], all_embeddings)
     #    averaged_embedding = averaged_embedding / len(all_embeddings)
         averaged_embeddings.\
-          append((word, averaged_embedding/np.linalg.norm(averaged_embedding)))
+          append((neighbor, averaged_embedding/np.linalg.norm(
+          averaged_embedding)))
       else:
         averaged_embeddings.append(all_embeddings[0])
 
@@ -697,14 +747,32 @@ def word_trajectories(word, embedding,core_tensor,wordIDs,k,neighbor_method = "f
   for i in range(unique_words):
     final_U[i,:] = word_embeddings[i][1]
 
-  tsne_data = TSNE(2).fit_transform(final_U)
-  plt.scatter(tsne_data[:,0],tsne_data[:,1])
+  if use_plotly:
+    tsne_data = TSNE(3).fit_transform(final_U)
 
-  for i in range(unique_words):
-    plt.annotate(word_embeddings[i][0], (tsne_data[i,0],tsne_data[i,1]))
-  plt.title("word trajectory of {},k = {} neighbor method: {}".\
-            format(word, k,neighbor_method))
-  plt.show()
+    #generate a dictionary to link words to indices
+    final_embedding_IDs = {}
+    for i in range(unique_words):
+      final_embedding_IDs[t] = word_embeddings[i][0]
+
+    w2v.plot_embeddings(tsne_data,final_embedding_IDs)
+  else:
+    tsne_data = TSNE(2).fit_transform(final_U)
+    plt.figure(figsize=(20, 10))
+    plt.scatter(tsne_data[:,0],tsne_data[:,1])
+
+    for i in range(unique_words):
+      plt.annotate(word_embeddings[i][0], (tsne_data[i,0],tsne_data[i,1]))
+    plt.title("word trajectory of {},k = {} neighbor method: {}".\
+              format(word, k,neighbor_method))
+    if save:
+      file_name = "{}_word_trajectory_FSVD_V_d_150_k_{}_neighbor_method_{" \
+                  "}.png".\
+        format(word,k,neighbor_method)
+      plt.savefig(file_name)
+    else:
+      plt.show()
+    plt.clf()
 
 '''-----------------------------------------------------------------------------
     collect_embedding_distances(word_embedding, core_tensor)
