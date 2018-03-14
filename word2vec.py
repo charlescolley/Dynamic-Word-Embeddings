@@ -15,8 +15,8 @@ import multiprocessing as mp
 #from process_scipts import compute_fft
 import os
 import psutil
-#import plotly.offline as py
-#import plotly.graph_objs as go
+import plotly.offline as py
+import plotly.graph_objs as go
 import process_data as pd
 from process_scipts import slice_multiply
 
@@ -31,6 +31,31 @@ def main():
   x = np.random.rand(n*T,1)
   bcm = block_circulant(slices)
   bcm.rmatvec(x)
+
+
+'''-----------------------------------------------------------------------------
+   normalize_by_degree(A)
+       This function takes in matrix and computes the in and out degree of the 
+     graph produced by thinking of A as an adjacency matrix of an undirected 
+     graph. Here we will assume that the entries of A are non-negative. 
+   Input:
+     A - (n x n symmetric sparse matrix)
+       The matrix to normalize by the degrees of the vertices. 
+   Returns:
+     normalized_A - (n x n symmetrix sparse matrix)
+       The matrix normalized by D^{-1} A D^{-1} where D is the degree matrix 
+       of the graph. 
+   Note:
+     This function may not be optimal in terms of memory complexity(usage of 
+     np.ones, but seeing as it will only be run one once per matrix slice, 
+     it won't be an issue. Should be re-written to be more comprehensive.
+-----------------------------------------------------------------------------'''
+def normalize_by_degree(A):
+  n = A.shape[0]
+  inverse_degrees = map(lambda x: 1/x, A * np.ones(n))
+
+  return sp.diags(inverse_degrees) * (A * sp.diags(inverse_degrees))
+
 
 
 
@@ -117,13 +142,13 @@ def svd_embedding(matrix, k):
 def plot_embeddings(embedding, words =None):
 
   print embedding[:,0]
-  trace1 = go.scatter3d(
+  trace1 = go.Scatter3d(
     x = embedding[:,0],
     y = embedding[:, 1],
     z = embedding[:, 2],
 
     mode = 'text',
-    hoverinfo = words.values(),
+#    hoverinfo = words.values(),
            marker = dict(
       color='rgb(127, 127, 127)',
       size=12,
@@ -137,7 +162,7 @@ def plot_embeddings(embedding, words =None):
     )
   )
   data = [trace1]
-  layout = go.layout(
+  layout = go.Layout(
     margin=dict(
       l=0,
       r=0,
@@ -145,7 +170,7 @@ def plot_embeddings(embedding, words =None):
       t=0
     )
   )
-  fig = go.figure(data=data,layout = layout)
+  fig = go.Figure(data=data,layout = layout)
   py.plot(fig,filename='embedding.html')
 
 '''-----------------------------------------------------------------------------
@@ -1034,7 +1059,7 @@ def flattened_svd(A,k, LO_type = None,use_V = False,years_used = None):
     for t in range(T):
  #     filename = "full_svd/full_wordPairPMI_" +str(years_used[t])+ "_U.npy"
   #    U_t = np.load(filename)
-      b[t] = np.dot(VT[:,t*n:(t+1)*n].T,VT[:,t*n:(t+1)*n])
+      b[t] = np.dot(VT[:,t*n:(t+1)*n],VT[:,t*n:(t+1)*n].T)
 
   else:
     U, sigma, _ = svds(A_1, k=k, return_singular_vectors="u")

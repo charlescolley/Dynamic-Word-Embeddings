@@ -67,7 +67,6 @@ def main():
   norm_difference_histogram(U,B,1990)
 
 
-
 '''----------------------------------------------------------------------------- 
     plot_core_tensor_eigenvalues(core_tensor)
         This function takes in a core tensor and computes/ plots the 
@@ -286,10 +285,9 @@ def get_word_indices():
     print "saved" + name
 
 '''-----------------------------------------------------------------------------
-    norm_difference_histogram(embedding1,embedding2)
-      This function takes in a shared embedding, core tensor, and a start 
-      year and creates a histogram of all the differences between each years 
-      word embedding from the initial word embedding. 
+    norm_difference_histogram(shared_embedding, core_tensor, start_year)
+      This function creates a histogram of all the differences between each 
+      years word embedding from the initial word embedding. 
     Input:
       shared_embedding - (n x d numpy array)
         each of the embeddings to be compared against one another.
@@ -301,20 +299,20 @@ def get_word_indices():
 def norm_difference_histogram(shared_embedding, core_tensor, start_year):
   n = shared_embedding.shape[0]
   T = core_tensor.shape[0]
+  offset = 7
 
   differences = np.empty(n)
 
   embedding1 = np.dot(shared_embedding, core_tensor[0])
   normalize(embedding1)
 
-  for t in xrange(1,T):
+  for t in xrange(1 + offset,T):
     embedding2 = np.dot(shared_embedding, core_tensor[t])
     normalize(embedding2)
     for i in xrange(n):
-      differences[i] = np.linalg.norm(embedding1[i,:] -embedding2[i,
-                                                                :])
+      differences[i] = np.linalg.norm(embedding1[i,:] - embedding2[i,:])
     plt.hist(differences,bins=50, alpha =.5, ec = 'black')
-  plt.legend(range(start_year,start_year+T+1))
+  plt.legend(range(start_year+offset,start_year+T+1))
   plt.show()
 
 
@@ -1032,7 +1030,7 @@ def save_full_aligned_tensor():
         The years associated with the 
 -----------------------------------------------------------------------------'''
 def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
-                            use_V = False,d = 50):
+                            use_V = False,d = 50, normalized_by_degree = False):
   #check for svd folder
   # check if places for stdout_files existt
   path = os.path.join(os.getcwd(), 'flattened_svd')
@@ -1054,6 +1052,9 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
   else:
     slices, _ = get_slices(years,use_full=True)
 
+  if normalized_by_degree:
+    slices = map(lambda x: w2v.normalize_by_degree(x), slices)
+
   U, sigma,B = w2v.flattened_svd(slices,d,LO_type,use_V,years_used=years)
 
   filename_base = 'flattened_svd/'+str(years[0]) +'_to_' + str(years[-1])
@@ -1062,6 +1063,8 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
     filename_base = filename_base +'_' + LO_type
   if use_truncated:
     filename_base = filename_base +"_truncated"
+  if normalized_by_degree:
+    filename_base = filename_base + "_normalized_by_degree"
   if use_V:
     filename_base = filename_base + "_use_V"
 
