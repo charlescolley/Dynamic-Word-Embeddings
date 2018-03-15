@@ -1,6 +1,7 @@
 import nltk
 import os
-from scipy.sparse import dok_matrix
+import pickle
+from scipy.sparse import dok_matrix, coo_matrix, save_npz
 from numpy import log
 
 def main():
@@ -29,21 +30,50 @@ def inaugural(window_size):
   corpus = nltk.corpus.inaugural
 
   #find all alpha numeric words in the dataset
-  words = map(lambda x: x.lower(),
-              filter(lambda x: x.isalpha(), set(corpus.words())))
+  wordID = create_wordID_dict(corpus.words())
 
-  #build wordID dictionary for indices
+  file_basename = "inaugural_ws_{}_PMI_".format(window_size)
+
+  #create and save all the PPMI matrices
+  files = corpus.fileids()
+  for file in files:
+    P = PPMI(corpus,file,wordID,window_size)
+    filename = file_basename + file[:4]
+    save_npz(filename,P.tocoo())
+    print "processed {} as {}".format(file,filename)
+
+  #save wordID
+  with open(files[0][:4] + '_' +  files[-1][:4] + '_' +
+            'wordIDs.pickle', 'wb') as handle:
+    pickle.dump(wordID, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+'''-----------------------------------------------------------------------------
+   create_wordID_dict(corpus_words)
+       This function takes in the words from a nltk corpus and creates a 
+     dictionary linking each of the words to an index the matrix. Only words 
+     that are comprised of alphanumeric values will be used (no punctuation). 
+     This function is used to help align all the tensor slices created from 
+     multiple text corpuses. 
+   Input: 
+     corpus_words - (nltk corpus reader concatonatedCorpusView)
+       the result of calling .words() on a nltk corpus. This will be the list of
+       words to use for creating the PPMI matrices. 
+   Note: 
+     May need to be generalized to take in a list of corpus words.  
+-----------------------------------------------------------------------------'''
+def create_wordID_dict(corpus_words):
+  # find all alpha numeric words in the dataset
+  words = map(lambda x: x.lower(),
+              filter(lambda x: x.isalpha(), set(corpus_words)))
+
+  # build wordID dictionary for indices
   wordID = {}
   total_word_count = 0
   for word in words:
     if word not in wordID:
       wordID[word] = total_word_count
       total_word_count += 1
-
-  files = corpus.fileids()
-  P = PPMI(corpus,files[0],wordID,window_size)
-  print P.nnz
-
+  return wordID
 
 '''-----------------------------------------------------------------------------
    PPMI(corpus)

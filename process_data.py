@@ -981,6 +981,53 @@ def get_slices(years,normalize = True, use_full = False):
 
   return slices, shared_ID
 
+'''-----------------------------------------------------------------------------
+   get_general_slices(years)
+       This function will load in the PPMI matrices for a given dataset using 
+     the more general file format. Files are expected to follow
+           [corpus_source]_ws_[window_size(int)]_PMI_[year(int)].npz
+     corpus_source will also be the name of the directory the files are saved 
+     in. The files will all be aligned, and the wordID dictionary will also be 
+     stored in the directory with the tensor slices. 
+   Input:
+     years - (list of ints)
+       the years to load in. All years are assumed to exist in the directory, 
+       no existance is checked. 
+   Returns:
+     slices - (list of sparse dok matrices)
+       the tensor slices stored in correspondence with the list of ints 
+       associated with years.
+     wordID - (dictionary)
+       a dictionary linking the words to an index in each matrix. keys are the 
+       indices, and the values are the words associated in the matrix.
+   Note:
+     more hyperparamters may be added into the format in later additions.
+-----------------------------------------------------------------------------'''
+def get_general_slices(years):
+  slices = []
+
+  files = os.listdir('.')
+
+  for year in years:
+    pattern = re.compile(".*PMI_{}\.npz".format(year))
+    file = filter(lambda x: re.match(pattern,x), files)
+    print file[0]
+    PPMI = sp.load_npz(file[0])
+    slices.append(PPMI.todok())
+
+  #get the wordID dictionary
+  pattern = re.compile(".*wordIDs.pickle")
+  file = filter(lambda x: re.match(pattern,x),files)
+  print file[0]
+  with open(file[0],'r') as handle:
+    wordID = pickle.load(handle)
+
+  #invert to match interface of other functions
+  wordID = {val:key for key,val in wordID.iteritems()}
+
+  return slices, wordID
+
+
 def compute_mode_3_ft(years):
   path = os.path.join(os.getcwd(), 'fourier_transforms')
   if not os.path.exists(path):
@@ -1037,20 +1084,24 @@ def flattened_svd_embedding(years, LO_type = None, use_truncated=False,
   if not os.path.exists(path):
     os.makedirs(path)
 
+  old_format = False
 
-  if use_truncated:
-    slices = []
-    # load in the the singular vectors to compute the truncated factorization
-    for year in years:
-      svd_filename_basename = "full_svd/full_wordPairPMI_" +str(year)
-      U = np.load(svd_filename_basename +"_U.npy")
-      S = np.load(svd_filename_basename +"_sigma.npy")
-      slices.append(w2v.truncated_svd(U,S))
+  if old_format:
+    if use_truncated:
+      slices = []
+      # load in the the singular vectors to compute the truncated factorization
+      for year in years:
+        svd_filename_basename = "full_svd/full_wordPairPMI_" +str(year)
+        U = np.load(svd_filename_basename +"_U.npy")
+        S = np.load(svd_filename_basename +"_sigma.npy")
+        slices.append(w2v.truncated_svd(U,S))
 
-    LO_type = "already_applied"
+      LO_type = "already_applied"
 
+    else:
+      slices, _ = get_slices(years,use_full=True)
   else:
-    slices, _ = get_slices(years,use_full=True)
+    slices, _ = get_general_slices(years)
 
   if normalized_by_degree:
     slices = map(lambda x: w2v.normalize_by_degree(x), slices)
